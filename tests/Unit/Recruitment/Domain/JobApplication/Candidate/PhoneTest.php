@@ -46,4 +46,20 @@ final class PhoneTest extends TestCase
         yield 'too many digits' => ['+1234567890123456'];
         yield 'plus in the middle' => ['600+123456'];
     }
+
+    #[DataProvider('blankPhones')]
+    public function test_a_blank_phone_means_no_phone(?string $value): void
+    {
+        self::assertNull(Phone::fromNullable($value));
+    }
+
+    /**
+     * @return iterable<string, array{?string}>
+     */
+    public static function blankPhones(): iterable
+    {
+        yield 'null' => [null];
+        yield 'empty' => [''];
+        yield 'whitespace' => ['   '];
+    }
 }
