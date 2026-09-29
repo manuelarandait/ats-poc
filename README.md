@@ -2,6 +2,11 @@
 
 Minimal Application Tracking System: candidates apply to a job pasting their CV as text, and an asynchronous (mocked) AI process enriches each application with a summary and a relevance score.
 
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md) — how the code is organised and why (hexagonal vs classic Symfony)
+- [Work plan & decision log](docs/PLAN.md)
+
 ## Requirements
 
 - Docker + Docker Compose
