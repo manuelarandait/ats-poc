@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  qa-and-tests:
+    name: QA & tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      # Same entry point a reviewer uses locally: everything runs in Docker.
+      - name: Start the stack (make init)
+        run: make init
+
+      - name: Coding standards, static analysis, architecture (make qa)
+        run: make qa
+
+      - name: Unit & integration tests (make test)
+        run: make test
+
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --no-color

@@ -7,6 +7,7 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 - [x] **0. Skeleton** — Docker (FrankenPHP, worker, Postgres, RabbitMQ), `make init`, three Messenger buses, Doctrine XML mapping, test suites.
 - [x] **1. Standards & tooling** — CLAUDE.md, skills, rules, this plan; PHPStan (max), PHP-CS-Fixer, Deptrac, `make qa`; dama/doctrine-test-bundle, Foundry, DoctrineFixturesBundle.
 - [x] **2. Recruitment domain** — `JobOffer` catalog, `JobApplication` aggregate, value objects, statuses, domain events. Unit tests only (no framework).
+- [x] **CI** — GitHub Actions runs `make init`, `make qa` and `make test` on every PR and on `main`.
 - [ ] **3. Submit use case (command side)** — `SubmitJobApplication` command + handler, Doctrine repository, migrations, job-offer fixtures, domain events published after commit. Integration tests.
 - [ ] **4. Screening context (async enrichment)** — reacts to `JobApplicationSubmitted` via RabbitMQ, `CvAnalyzer` port + mocked LLM adapter, emits the result back; Recruitment attaches summary + score. Idempotency, retries, failure path. Tests.
 - [ ] **5. Read side (query side)** — list (newest first, filters by status/position, search by name/email) and detail queries, read models / DTOs. Integration tests.
@@ -48,3 +49,5 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 | 22 | AI result as `AiScreening` VO (summary + 0–100 score) plus explicit `ScreeningStatus` (`pending/completed/failed`), independent from the hiring status | UI can show "analysing…" / "failed" states; hiring and screening evolve separately. |
 | 23 | Screening methods are idempotent: repeated result ignored, late failure never overrides a result, failed can still complete | RabbitMQ delivers at least once; retries must be safe. |
 | 24 | Aggregates record events with primitives only; `JobApplicationSubmitted` carries ids for now | Serializable through the broker; whether it should carry the CV (event-carried state transfer) is decided in iteration 4. |
+| 25 | CI on GitHub Actions reusing the Makefile inside Docker | Same commands locally and in CI, no drift; reviewers see a green check on every PR without cloning. Trade-off: slower than native `setup-php` (image build). |
+| 26 | PostgreSQL stays (vs SQLite / in-memory) | App and worker are separate processes that must share state; persistence is a requirement; the list needs indexed filtering/search. Swappable thanks to the repository ports. |
