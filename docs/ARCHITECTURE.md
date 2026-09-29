@@ -12,12 +12,12 @@ The rule that holds everything together: **dependencies only point inwards**. Th
 ┌──────────────────── Infrastructure ────────────────────┐
 │  HTTP controllers, Doctrine, RabbitMQ, Twig, AI mock    │
 │    ┌─────────────── Application ───────────────┐        │
-│    │  Use cases: SubmitJobApplication, …        │        │
-│    │    ┌───────────── Domain ─────────────┐    │        │
-│    │    │  JobApplication, Email, rules …  │    │        │
-│    │    └──────────────────────────────────┘    │        │
-│    └────────────────────────────────────────────┘        │
-└──────────────────────────────────────────────────────────┘
+│    │  Use cases: SubmitJobApplication, …       │        │
+│    │    ┌───────────── Domain ─────────────┐   │        │
+│    │    │  JobApplication, Email, rules …  │   │        │
+│    │    └──────────────────────────────────┘   │        │
+│    └───────────────────────────────────────────┘        │
+└─────────────────────────────────────────────────────────┘
                  dependencies point → inwards
 ```
 

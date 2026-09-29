@@ -1,5 +1,7 @@
-DC  = docker compose
-PHP = $(DC) exec app php
+DC   = docker compose
+# No TTY on CI runners (GitHub Actions sets CI=true)
+EXEC = $(DC) exec $(if $(CI),-T,) app
+PHP  = $(EXEC) php
 .DEFAULT_GOAL := help
 
 help: ## Show available commands
@@ -7,7 +9,7 @@ help: ## Show available commands
 
 init: ## Build, start and prepare everything (first run)
 	$(DC) up -d --build --wait app
-	$(DC) exec app composer install --no-interaction
+	$(EXEC) composer install --no-interaction
 	$(MAKE) db
 	$(DC) up -d worker
 	@echo "\n  App:      http://localhost:8080\n  RabbitMQ: http://localhost:15672 (guest/guest)\n"
@@ -34,17 +36,17 @@ test-integration: ## Run integration tests only
 	$(PHP) bin/phpunit --testsuite=integration
 
 cs: ## Check coding standards (dry-run)
-	$(DC) exec app vendor/bin/php-cs-fixer fix --dry-run --diff
+	$(EXEC) vendor/bin/php-cs-fixer fix --dry-run --diff
 
 cs-fix: ## Fix coding standards
-	$(DC) exec app vendor/bin/php-cs-fixer fix
+	$(EXEC) vendor/bin/php-cs-fixer fix
 
 stan: ## Static analysis (PHPStan level max)
 	$(PHP) bin/console cache:warmup --env=dev -q
-	$(DC) exec app vendor/bin/phpstan analyse --memory-limit=1G
+	$(EXEC) vendor/bin/phpstan analyse --memory-limit=1G
 
 deptrac: ## Check architecture layers and context boundaries
-	$(DC) exec app vendor/bin/deptrac analyse --no-progress
+	$(EXEC) vendor/bin/deptrac analyse --no-progress
 
 qa: cs stan deptrac ## Run all quality checks
 
@@ -52,6 +54,6 @@ logs: ## Tail the async worker logs
 	$(DC) logs -f worker
 
 sh: ## Shell into the app container
-	$(DC) exec app sh
+	$(EXEC) sh
 
 .PHONY: help init up down db test test-unit test-integration cs cs-fix stan deptrac qa logs sh
