@@ -18,7 +18,7 @@ make qa                # php-cs-fixer (dry-run) + phpstan + deptrac
 make logs              # follow the async worker
 ```
 
-Never run PHP/Composer on the host except `composer require` (the platform is pinned to PHP 8.3 in composer.json).
+Never run PHP/Composer on the host except `composer require` (the platform is pinned to PHP 8.4 in composer.json).
 
 ## Architecture map
 

@@ -1,6 +1,6 @@
 ---
 name: php-symfony-standards
-description: PHP 8.3 and Symfony 7.4 coding standards for this project. Use when writing or reviewing any PHP class, Symfony config, controller, console command or Doctrine code.
+description: PHP 8.4 and Symfony 8.1 coding standards for this project. Use when writing or reviewing any PHP class, Symfony config, controller, console command or Doctrine code.
 ---
 
 # PHP & Symfony standards

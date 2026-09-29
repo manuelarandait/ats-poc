@@ -25,7 +25,7 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 
 | # | Decision | Why |
 |---|----------|-----|
-| 1 | Symfony 7.4 LTS / PHP 8.3 | Author's daily stack; Messenger maps naturally to command/query/event buses. |
+| 1 | Symfony 8.1 / PHP 8.4 (upgraded from 7.4 LTS in iteration 1) | Author's daily stack; Messenger maps naturally to buses. Greenfield PoC → current stable over LTS; PHP 8.4 asymmetric visibility (`public private(set)`) fits aggregates/VOs. Trade-off: 8.1 maintained until 01/2027 — a long-lived product would pick 7.4 LTS or plan the 8.4 LTS upgrade. |
 | 2 | RabbitMQ + dedicated worker container | Real messaging, closest to production; showcases async processing. |
 | 3 | Everything in Docker, `make init` | Reviewer only needs Docker + Make. |
 | 4 | Three buses (command / query / event) | Different semantics: transactional writes, side-effect-free reads, events with 0..n listeners. |
@@ -37,3 +37,5 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 | 10 | AssetMapper + Stimulus + Tailwind (no Node) | Idiomatic Symfony, modern look, zero JS build pipeline. |
 | 11 | PHPUnit + dama/doctrine-test-bundle + Foundry | Fast isolated DB tests; Foundry factories go through named constructors to respect the domain. |
 | 12 | Plan, CLAUDE.md, skills and rules versioned in the repo | Transparent, disciplined AI-assisted workflow. |
+| 13 | Test methods in snake_case (`test_it_rejects_invalid_email`) | Reads as a sentence in PHPUnit output; tests document behaviour. |
+| 14 | Conventional Commits | Readable history by type (feat/fix/test/docs/chore/refactor). |

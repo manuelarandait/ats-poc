@@ -17,7 +17,7 @@ Mirror the `src/` tree in `tests/`.
 
 ## Conventions
 
-- Test class `final`, named `<Subject>Test`; methods `test_it_<does_something>` … or `itDoesSomething` with `#[Test]` — pick one and stay consistent (decision pending).
+- Test class `final`, named `<Subject>Test`; methods in snake_case starting with `test_`: `test_it_rejects_an_invalid_email()`. They must read as a sentence in the PHPUnit output.
 - Arrange / Act / Assert blocks separated by a blank line. One behaviour per test.
 - Build domain objects with **Object Mothers** (`JobApplicationMother::submitted()`, `EmailMother::random()`) in `tests/<Context>/Domain/…Mother.php`. Never repeat raw constructor calls across tests.
 - **Foundry** only for persisted fixtures in integration/functional tests. Factories must instantiate through the aggregate's named constructor (`instantiateWith(...)`) so invariants and recorded events are respected — no property hydration.
