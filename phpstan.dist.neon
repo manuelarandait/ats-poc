@@ -10,3 +10,9 @@ parameters:
         containerXmlPath: var/cache/dev/App_KernelDevDebugContainer.xml
     doctrine:
         objectManagerLoader: tests/object-manager.php
+    ignoreErrors:
+        # AiScreening is a nullable embeddable: its columns are NULL until the AI
+        # result arrives, and NullAiScreeningOnLoad turns that into a null VO.
+        -
+            identifier: doctrine.columnType
+            path: src/Recruitment/Domain/JobApplication/AiScreening.php
