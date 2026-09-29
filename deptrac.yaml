@@ -1,0 +1,45 @@
+# Architecture rules, verified by `make deptrac`.
+# - Domain is pure PHP: it may only use the shared-kernel domain.
+# - Application (use cases) may add its own Domain and PSR interfaces, never the framework.
+# - Infrastructure is the only layer allowed to touch Symfony/Doctrine.
+# - Bounded contexts (Recruitment, Screening) never depend on each other: no rule allows it.
+deptrac:
+  paths:
+    - ./src
+
+  layers:
+    - name: Shared_Domain
+      collectors: [{ type: directory, value: src/Shared/Domain/.* }]
+    - name: Shared_Infrastructure
+      collectors: [{ type: directory, value: src/Shared/Infrastructure/.* }]
+
+    - name: Recruitment_Domain
+      collectors: [{ type: directory, value: src/Recruitment/Domain/.* }]
+    - name: Recruitment_Application
+      collectors: [{ type: directory, value: src/Recruitment/Application/.* }]
+    - name: Recruitment_Infrastructure
+      collectors: [{ type: directory, value: src/Recruitment/Infrastructure/.* }]
+
+    - name: Screening_Domain
+      collectors: [{ type: directory, value: src/Screening/Domain/.* }]
+    - name: Screening_Application
+      collectors: [{ type: directory, value: src/Screening/Application/.* }]
+    - name: Screening_Infrastructure
+      collectors: [{ type: directory, value: src/Screening/Infrastructure/.* }]
+
+    - name: Framework
+      collectors: [{ type: classNameRegex, value: '#^(Symfony|Doctrine|Zenstruck|DAMA)\\#' }]
+    - name: Psr
+      collectors: [{ type: classNameRegex, value: '#^Psr\\#' }]
+
+  ruleset:
+    Shared_Domain: ~
+    Shared_Infrastructure: [Shared_Domain, Framework, Psr]
+
+    Recruitment_Domain: [Shared_Domain]
+    Recruitment_Application: [Recruitment_Domain, Shared_Domain, Psr]
+    Recruitment_Infrastructure: [Recruitment_Application, Recruitment_Domain, Shared_Domain, Shared_Infrastructure, Framework, Psr]
+
+    Screening_Domain: [Shared_Domain]
+    Screening_Application: [Screening_Domain, Shared_Domain, Psr]
+    Screening_Infrastructure: [Screening_Application, Screening_Domain, Shared_Domain, Shared_Infrastructure, Framework, Psr]

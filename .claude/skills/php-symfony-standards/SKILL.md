@@ -20,8 +20,8 @@ description: PHP 8.4 and Symfony 8.1 coding standards for this project. Use when
 
 ## Symfony
 
-- Configuration via attributes for wiring (`#[AsMessageHandler]`, `#[Route]`, `#[AsCommand]`) — but **only in Infrastructure/Application**, never in Domain.
-- Controllers are thin, invokable (`__invoke`), one action per class, in `Infrastructure/Http`. They translate HTTP ⇄ command/query and nothing else: no Doctrine, no business rules.
+- Framework attributes (`#[Route]`, `#[AsCommand]`, `#[MapRequestPayload]`…) **only in Infrastructure**. Application handlers implement our own marker interfaces (`CommandHandler`, `QueryHandler`, `DomainEventSubscriber` in `Shared/Domain/Bus`) and are tagged for Messenger via `_instanceof` in `config/services.yaml` — no `#[AsMessageHandler]`.
+- Controllers are thin, invokable (`__invoke`), one action per class, in `Infrastructure/Http`, and don't extend `AbstractController` (inject `Environment`/`UrlGeneratorInterface` explicitly). They translate HTTP ⇄ command/query and nothing else: no Doctrine, no business rules.
 - Input validation at the edge with Symfony Validator on a request DTO (`#[MapRequestPayload]` / form DTO); domain invariants are validated again inside value objects (defence in depth, the domain never trusts the edge).
 - Dispatch through our own bus interfaces (`CommandBus`, `QueryBus`, `EventBus` in `Shared/Domain/Bus`), implemented by Messenger adapters in `Shared/Infrastructure`. Application code never depends on `MessageBusInterface` directly.
 - Autowiring + autoconfigure; bind interfaces to implementations in `config/services.yaml` only when autowiring can't resolve them.

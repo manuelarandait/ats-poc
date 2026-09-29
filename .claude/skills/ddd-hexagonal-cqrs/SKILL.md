@@ -19,7 +19,8 @@ Contexts **never import each other's classes** (Deptrac enforces it). They commu
 
 ```
 Domain          → depends on: Shared\Domain only. Pure PHP, no Symfony, no Doctrine.
-Application     → depends on: its own Domain, Shared\Domain.
+Application     → depends on: its own Domain, Shared\Domain, PSR interfaces. No Symfony: handlers implement
+                  our CommandHandler/QueryHandler/DomainEventSubscriber interfaces, wired in services.yaml.
 Infrastructure  → depends on: anything (own Domain/Application, Shared, vendor).
 ```
 

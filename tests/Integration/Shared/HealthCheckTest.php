@@ -8,7 +8,7 @@ use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
 final class HealthCheckTest extends WebTestCase
 {
-    public function testApplicationBoots(): void
+    public function test_application_boots(): void
     {
         $client = static::createClient();
         $client->request('GET', '/health');

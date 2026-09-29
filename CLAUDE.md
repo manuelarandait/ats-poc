@@ -9,6 +9,8 @@ Technical-exercise PoC: a micro Application Tracking System (DDD + Hexagonal + C
 - Record every agreed decision in the *Decision log* of `docs/PLAN.md`, with its reason.
 - Talk to the author in Spanish. Code, commits and docs are in English.
 
+`AGENTS.md` is Symfony's official agent guide and applies in general. **Where it conflicts with DDD/hexagonal, this file and the project skills win** — e.g. controllers are invokable and don't extend `AbstractController`, Application/Domain never use framework attributes, validation attributes live on request DTOs, never on domain objects.
+
 ## Commands (everything runs in Docker)
 
 ```bash

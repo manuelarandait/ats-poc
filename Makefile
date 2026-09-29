@@ -33,10 +33,25 @@ test-unit: ## Run unit tests only
 test-integration: ## Run integration tests only
 	$(PHP) bin/phpunit --testsuite=integration
 
+cs: ## Check coding standards (dry-run)
+	$(DC) exec app vendor/bin/php-cs-fixer fix --dry-run --diff
+
+cs-fix: ## Fix coding standards
+	$(DC) exec app vendor/bin/php-cs-fixer fix
+
+stan: ## Static analysis (PHPStan level max)
+	$(PHP) bin/console cache:warmup --env=dev -q
+	$(DC) exec app vendor/bin/phpstan analyse --memory-limit=1G
+
+deptrac: ## Check architecture layers and context boundaries
+	$(DC) exec app vendor/bin/deptrac analyse --no-progress
+
+qa: cs stan deptrac ## Run all quality checks
+
 logs: ## Tail the async worker logs
 	$(DC) logs -f worker
 
 sh: ## Shell into the app container
 	$(DC) exec app sh
 
-.PHONY: help init up down db test test-unit test-integration logs sh
+.PHONY: help init up down db test test-unit test-integration cs cs-fix stan deptrac qa logs sh

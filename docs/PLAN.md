@@ -5,7 +5,7 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 ## Iterations
 
 - [x] **0. Skeleton** — Docker (FrankenPHP, worker, Postgres, RabbitMQ), `make init`, three Messenger buses, Doctrine XML mapping, test suites.
-- [ ] **1. Standards & tooling** — CLAUDE.md, skills, rules, this plan; PHPStan (max), PHP-CS-Fixer, Deptrac, `make qa`; dama/doctrine-test-bundle, Foundry, DoctrineFixturesBundle.
+- [x] **1. Standards & tooling** — CLAUDE.md, skills, rules, this plan; PHPStan (max), PHP-CS-Fixer, Deptrac, `make qa`; dama/doctrine-test-bundle, Foundry, DoctrineFixturesBundle.
 - [ ] **2. Recruitment domain** — `JobOffer` catalog, `JobApplication` aggregate, value objects, statuses, domain events. Unit tests only (no framework).
 - [ ] **3. Submit use case (command side)** — `SubmitJobApplication` command + handler, Doctrine repository, migrations, job-offer fixtures, domain events published after commit. Integration tests.
 - [ ] **4. Screening context (async enrichment)** — reacts to `JobApplicationSubmitted` via RabbitMQ, `CvAnalyzer` port + mocked LLM adapter, emits the result back; Recruitment attaches summary + score. Idempotency, retries, failure path. Tests.
@@ -39,3 +39,5 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 | 12 | Plan, CLAUDE.md, skills and rules versioned in the repo | Transparent, disciplined AI-assisted workflow. |
 | 13 | Test methods in snake_case (`test_it_rejects_invalid_email`) | Reads as a sentence in PHPUnit output; tests document behaviour. |
 | 14 | Conventional Commits | Readable history by type (feat/fix/test/docs/chore/refactor). |
+| 15 | Application layer framework-free: handlers implement own marker interfaces, tagged via `_instanceof` | Use cases don't know Messenger exists; framework swap wouldn't touch them. Enforced by Deptrac. Trade-off: less idiomatic than `#[AsMessageHandler]`, a bit more wiring. |
+| 16 | Keep Symfony's official `AGENTS.md`, project skills take precedence on conflicts | Shows knowledge of the official guide and deliberate, justified deviations (AbstractController, attributes in domain). |
