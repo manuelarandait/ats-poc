@@ -20,6 +20,7 @@ make init
 
 - App: http://localhost:8080
 - RabbitMQ management: http://localhost:15672 (guest / guest)
+- PostgreSQL: `localhost:5433`, database `app`, user `app` / password `app` (tests use a separate `app_test` database)
 
 ## Test
 

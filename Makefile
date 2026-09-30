@@ -13,7 +13,7 @@ init: ## Build, start and prepare everything (first run)
 	$(MAKE) db
 	$(MAKE) fixtures
 	$(DC) up -d worker
-	@echo "\n  App:      http://localhost:8080\n  RabbitMQ: http://localhost:15672 (guest/guest)\n"
+	@echo "\n  App:        http://localhost:8080\n  RabbitMQ:   http://localhost:15672 (guest / guest)\n  PostgreSQL: localhost:5433, database app (app / app)\n"
 
 up: ## Start containers
 	$(DC) up -d
