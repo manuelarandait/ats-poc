@@ -12,6 +12,7 @@ init: ## Build, start and prepare everything (first run)
 	$(EXEC) composer install --no-interaction
 	$(MAKE) db
 	$(MAKE) fixtures
+	$(MAKE) assets
 	$(DC) up -d worker
 	@echo "\n  App:      http://localhost:8080\n  RabbitMQ: http://localhost:15672 (guest/guest)\n"
 
@@ -26,6 +27,13 @@ db: ## Create database and run migrations (dev + test)
 	$(PHP) bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
 	$(PHP) bin/console doctrine:database:create --if-not-exists --env=test
 	$(PHP) bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration --env=test
+
+assets: ## Install JS vendors and build the CSS
+	$(PHP) bin/console importmap:install
+	$(PHP) bin/console tailwind:build
+
+css-watch: ## Rebuild the CSS on every template change
+	$(PHP) bin/console tailwind:build --watch
 
 fixtures: ## Reload demo data (job offers + sample applications)
 	$(PHP) bin/console doctrine:fixtures:load --no-interaction
@@ -60,4 +68,4 @@ logs: ## Tail the async worker logs
 sh: ## Shell into the app container
 	$(EXEC) sh
 
-.PHONY: help init up down db fixtures test test-unit test-integration cs cs-fix stan deptrac qa logs sh
+.PHONY: help init up down db assets css-watch fixtures test test-unit test-integration cs cs-fix stan deptrac qa logs sh

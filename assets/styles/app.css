@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+/* Dark mode follows a `.dark` class on <html> (OS preference by default,
+   overridable with the toggle in the nav) instead of the media query only. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Scan Twig templates and Stimulus controllers for class names. */
+@source "../../templates";
+@source "../controllers";
+
+@layer base {
+    html {
+        color-scheme: light;
+    }
+
+    html.dark {
+        color-scheme: dark;
+    }
+}
+
+/* Reusable component classes: templates use these instead of repeating the
+   same utility soup (see .claude/rules/ui-design.md). */
+@layer components {
+    .card {
+        @apply rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900;
+    }
+
+    .btn {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-950 disabled:cursor-not-allowed disabled:opacity-50;
+    }
+
+    .btn-primary {
+        @apply bg-indigo-600 text-white hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-400;
+    }
+
+    .btn-secondary {
+        @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800;
+    }
+
+    .input {
+        @apply block w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/30 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:placeholder:text-slate-500;
+    }
+
+    .input-invalid {
+        @apply border-rose-500 focus:border-rose-500 focus:ring-rose-500/30;
+    }
+
+    .label {
+        @apply block text-sm font-medium text-slate-700 dark:text-slate-200;
+    }
+
+    .help {
+        @apply mt-1 text-xs text-slate-500 dark:text-slate-400;
+    }
+
+    .field-error {
+        @apply mt-1 text-xs font-medium text-rose-600 dark:text-rose-400;
+    }
+
+    .link {
+        @apply font-medium text-indigo-600 hover:text-indigo-700 hover:underline dark:text-indigo-400 dark:hover:text-indigo-300;
+    }
+
+    .meta {
+        @apply text-xs text-slate-500 dark:text-slate-400;
+    }
+
+    .badge {
+        @apply inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset whitespace-nowrap;
+    }
+}

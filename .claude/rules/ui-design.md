@@ -17,7 +17,15 @@ Goal: a **simple, calm, professional** recruiter tool — think Linear / Ashby, 
   - AI score: `≥ 70` emerald · `40–69` amber · `< 40` rose. Always show the number too — never colour alone.
 - **Typography**: system font stack (`font-sans`), no web fonts. Sizes: page title `text-2xl font-semibold`, section title `text-lg font-medium`, body `text-sm`, meta/timestamps `text-xs text-slate-500`. Numbers in tables use `tabular-nums`.
 - **Surfaces**: page background `bg-slate-50`; content in white cards `rounded-xl border border-slate-200 shadow-sm`. Consistent spacing scale (`gap-4`, `p-6`); no arbitrary values (`w-[337px]`).
-- **Layout**: centred container `max-w-6xl mx-auto px-4 sm:px-6`, top nav with product name + "Apply" / "Applications". Forms max `max-w-2xl`.
+- **Layout**: centred container `max-w-6xl mx-auto px-4 sm:px-6`, top nav with product name + "Jobs" / "Applications" + theme toggle. Forms max `max-w-2xl`.
+- **Language**: all UI copy in English.
+
+## Dark mode
+
+- Every surface, text, border and badge has a `dark:` counterpart — never ship a component that only works in light mode.
+- Class strategy (`.dark` on `<html>`): defaults to the OS preference, a toggle in the nav overrides it and is remembered (`localStorage`). An inline script in `<head>` applies it before paint (no flash).
+- Dark palette: page `dark:bg-slate-950`, cards `dark:bg-slate-900 dark:border-slate-800`, body text `dark:text-slate-100`, secondary `dark:text-slate-400`, accent `dark:text-indigo-400` / buttons `dark:bg-indigo-500`.
+- Semantic colours in dark mode use tinted backgrounds (`dark:bg-emerald-500/15 dark:text-emerald-300`), keeping AA contrast.
 
 ## Components (Twig)
 

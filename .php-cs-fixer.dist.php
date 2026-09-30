@@ -2,10 +2,11 @@
 
 $finder = (new PhpCsFixer\Finder())
     ->in(__DIR__)
-    ->exclude(['var', 'vendor'])
+    ->exclude(['var', 'vendor', 'assets/vendor', 'public/assets'])
     ->notPath([
         'config/bundles.php',
         'config/reference.php',
+        'importmap.php',
     ])
 ;
 
