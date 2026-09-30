@@ -11,7 +11,7 @@ use App\Recruitment\Domain\JobApplication\CvText;
 use App\Recruitment\Domain\JobApplication\JobApplication;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\Notes;
-use App\Recruitment\Domain\JobOffer\JobOfferId;
+use App\Recruitment\Domain\JobOffer\JobOffer;
 use App\Tests\Recruitment\Domain\JobOffer\JobOfferMother;
 use App\Tests\Shared\Domain\MotherCreator;
 
@@ -19,7 +19,7 @@ final class JobApplicationMother
 {
     public static function submitted(
         ?JobApplicationId $id = null,
-        ?JobOfferId $jobOfferId = null,
+        ?JobOffer $jobOffer = null,
         ?Candidate $candidate = null,
         ?string $cv = null,
         ?string $notes = null,
@@ -27,7 +27,7 @@ final class JobApplicationMother
     ): JobApplication {
         return JobApplication::submit(
             $id ?? self::id(),
-            $jobOfferId ?? JobOfferMother::id(),
+            $jobOffer ?? JobOfferMother::create(),
             $candidate ?? CandidateMother::create(),
             CvText::fromString($cv ?? self::cv()),
             Notes::fromNullable($notes),

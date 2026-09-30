@@ -21,4 +21,9 @@ final readonly class JobApplicationStatusChanged extends DomainEvent
     {
         return 'recruitment.job_application.status_changed';
     }
+
+    public function toPrimitives(): array
+    {
+        return ['from' => $this->from, 'to' => $this->to];
+    }
 }

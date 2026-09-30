@@ -20,4 +20,9 @@ final readonly class JobApplicationScreeningFailed extends DomainEvent
     {
         return 'recruitment.job_application.screening_failed';
     }
+
+    public function toPrimitives(): array
+    {
+        return ['reason' => $this->reason];
+    }
 }

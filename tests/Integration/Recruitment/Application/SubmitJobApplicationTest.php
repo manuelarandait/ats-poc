@@ -6,13 +6,13 @@ namespace App\Tests\Integration\Recruitment\Application;
 
 use App\Recruitment\Application\SubmitJobApplication\SubmitJobApplicationCommand;
 use App\Recruitment\Domain\JobApplication\Candidate\InvalidEmail;
-use App\Recruitment\Domain\JobApplication\Event\JobApplicationSubmitted;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\JobApplicationRepository;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobOffer\JobOfferNotFound;
 use App\Recruitment\Domain\JobOffer\JobOfferRepository;
 use App\Shared\Domain\Bus\Command\CommandBus;
+use App\Shared\Domain\DomainEvent;
 use App\Tests\Recruitment\Domain\JobOffer\JobOfferMother;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Test\KernelTestCase;
@@ -55,10 +55,12 @@ final class SubmitJobApplicationTest extends KernelTestCase
 
         $sent = $this->asyncTransport->getSent();
         self::assertCount(1, $sent);
+        // What travels is the JSON contract, not Recruitment's class: assert on it.
         $event = $sent[0]->getMessage();
-        self::assertInstanceOf(JobApplicationSubmitted::class, $event);
+        self::assertInstanceOf(DomainEvent::class, $event);
+        self::assertSame('recruitment.job_application.submitted', $event::eventName());
         self::assertSame(self::ID, $event->aggregateId);
-        self::assertSame($this->jobOfferId, $event->jobOfferId);
+        self::assertSame('Backend engineer, 6 years with PHP and Symfony.', $event->toPrimitives()['cv']);
         self::assertSame('event.bus', $sent[0]->last(BusNameStamp::class)?->getBusName(), 'Events must travel on the event bus.');
     }
 

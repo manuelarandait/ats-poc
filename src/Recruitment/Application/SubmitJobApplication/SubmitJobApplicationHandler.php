@@ -33,14 +33,11 @@ final readonly class SubmitJobApplicationHandler implements CommandHandler
     public function __invoke(SubmitJobApplicationCommand $command): void
     {
         $jobOfferId = JobOfferId::fromString($command->jobOfferId);
-
-        if (null === $this->offers->find($jobOfferId)) {
-            throw JobOfferNotFound::withId($jobOfferId);
-        }
+        $jobOffer = $this->offers->find($jobOfferId) ?? throw JobOfferNotFound::withId($jobOfferId);
 
         $application = JobApplication::submit(
             JobApplicationId::fromString($command->id),
-            $jobOfferId,
+            $jobOffer,
             new Candidate(
                 FullName::fromString($command->fullName),
                 Email::fromString($command->email),

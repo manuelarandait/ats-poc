@@ -33,7 +33,7 @@ final class SubmitJobApplicationHandlerTest extends TestCase
     protected function setUp(): void
     {
         $offers = new InMemoryJobOfferRepository();
-        $offers->save(JobOfferMother::create(id: JobOfferId::fromString(self::OFFER_ID)));
+        $offers->save(JobOfferMother::create(id: JobOfferId::fromString(self::OFFER_ID), title: 'Senior PHP Developer', description: 'Symfony and DDD.'));
 
         $this->applications = new InMemoryJobApplicationRepository();
         $this->eventBus = new SpyEventBus();
@@ -54,12 +54,12 @@ final class SubmitJobApplicationHandlerTest extends TestCase
         self::assertNull($application->notes);
     }
 
-    public function test_it_publishes_job_application_submitted(): void
+    public function test_it_publishes_job_application_submitted_with_cv_and_position(): void
     {
         ($this->handler)($this->command());
 
         self::assertEquals(
-            [new JobApplicationSubmitted(self::ID, self::OFFER_ID, new \DateTimeImmutable(self::NOW))],
+            [new JobApplicationSubmitted(self::ID, self::OFFER_ID, 'Senior PHP Developer', 'Symfony and DDD.', 'Backend engineer, 6 years with PHP and Symfony.', new \DateTimeImmutable(self::NOW))],
             $this->eventBus->published,
         );
     }
