@@ -1,0 +1,27 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Application received{% endblock %}
+
+{% block body %}
+    <div class="card mx-auto max-w-2xl p-8 text-center">
+        <div class="mx-auto grid size-12 place-items-center rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300" aria-hidden="true">
+            <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 13l4 4L19 7"/></svg>
+        </div>
+        <h1 class="mt-4 text-2xl font-semibold">Application received</h1>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-400">
+            Thanks for applying to <strong class="font-medium text-slate-900 dark:text-slate-100">{{ offer.title }}</strong>.
+            Our AI assistant is analysing your CV right now; the hiring team will see a summary and a relevance score in a few seconds.
+        </p>
+
+        <ol class="mx-auto mt-6 max-w-sm space-y-2 text-left text-sm text-slate-600 dark:text-slate-400">
+            <li class="flex gap-2"><span class="font-medium text-emerald-600 dark:text-emerald-400">1.</span> Application stored</li>
+            <li class="flex gap-2"><span class="font-medium text-indigo-600 dark:text-indigo-400">2.</span> AI analysis in progress</li>
+            <li class="flex gap-2"><span class="font-medium text-slate-400">3.</span> Review by the hiring team</li>
+        </ol>
+
+        <div class="mt-8 flex flex-wrap justify-center gap-3">
+            <a href="{{ path('jobs_index') }}" class="btn btn-secondary">Back to positions</a>
+            <a href="{{ path('applications_show', {id: applicationId}) }}" class="btn btn-primary">View application (recruiter view)</a>
+        </div>
+    </div>
+{% endblock %}

@@ -1,0 +1,43 @@
+{# Tailwind form theme: labels, help text and inline errors per ui-design rules. #}
+{% use 'form_div_layout.html.twig' %}
+
+{% block form_row %}
+    <div class="space-y-1">
+        {{- form_label(form) -}}
+        {{- form_widget(form) -}}
+        {{- form_help(form) -}}
+        {{- form_errors(form) -}}
+    </div>
+{% endblock %}
+
+{% block form_label %}
+    {% set label_attr = label_attr|merge({class: (label_attr.class|default('') ~ ' label')|trim}) %}
+    {{- parent() -}}
+{% endblock %}
+
+{% block form_label_content %}
+    {{- parent() -}}
+    {% if required %}<span class="text-rose-600 dark:text-rose-400" aria-hidden="true"> *</span>{% else %}<span class="font-normal text-slate-400"> (optional)</span>{% endif %}
+{% endblock %}
+
+{% block form_widget_simple %}
+    {% set attr = attr|merge({class: (attr.class|default('') ~ ' input' ~ (errors|length ? ' input-invalid'))|trim}) %}
+    {{- parent() -}}
+{% endblock %}
+
+{% block textarea_widget %}
+    {% set attr = attr|merge({class: (attr.class|default('') ~ ' input' ~ (errors|length ? ' input-invalid'))|trim}) %}
+    {{- parent() -}}
+{% endblock %}
+
+{% block form_help %}
+    {% if help is not empty %}
+        <p id="{{ id }}_help" class="help">{{ help|trans(help_translation_parameters, translation_domain) }}</p>
+    {% endif %}
+{% endblock %}
+
+{% block form_errors %}
+    {% for error in errors %}
+        <p class="field-error">{{ error.message }}</p>
+    {% endfor %}
+{% endblock %}

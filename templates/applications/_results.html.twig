@@ -1,0 +1,69 @@
+{% import 'components/ui.html.twig' as ui %}
+{% set hasFilters = filters.q or filters.status or filters.position %}
+{% set pageParams = filters|filter(v => v) %}
+
+{# advance: the URL follows the filters, so results are shareable and Back works. #}
+<turbo-frame id="{{ frame }}" data-turbo-action="advance" class="block transition-opacity aria-busy:opacity-60">
+    <div class="card overflow-hidden">
+        {% if page.items is empty %}
+            {% if hasFilters %}
+                {{ ui.empty_state('No applications match these filters', 'Try another search or clear the filters.', path('applications_index'), 'Clear filters') }}
+            {% else %}
+                {{ ui.empty_state('No applications yet', 'Share an open position to receive the first one.', path('jobs_index'), 'See open positions') }}
+            {% endif %}
+        {% else %}
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                    <thead class="sticky top-0 bg-slate-50 text-left text-xs font-medium uppercase tracking-wide text-slate-500 dark:bg-slate-900 dark:text-slate-400">
+                        <tr>
+                            <th scope="col" class="px-4 py-3">Candidate</th>
+                            <th scope="col" class="hidden px-4 py-3 md:table-cell">Position</th>
+                            <th scope="col" class="px-4 py-3">Status</th>
+                            <th scope="col" class="hidden px-4 py-3 text-right sm:table-cell">AI score</th>
+                            <th scope="col" class="hidden px-4 py-3 text-right sm:table-cell">Applied</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-200 dark:divide-slate-800">
+                        {% for item in page.items %}
+                            <tr class="relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
+                                <td class="px-4 py-3">
+                                    {# The link covers the whole row. #}
+                                    <a href="{{ path('applications_show', {id: item.id}) }}" data-turbo-frame="_top"
+                                       class="font-medium text-slate-900 after:absolute after:inset-0 focus-visible:outline-none dark:text-slate-100">{{ item.candidateName }}</a>
+                                    <div class="meta">{{ item.candidateEmail }}</div>
+                                </td>
+                                <td class="hidden px-4 py-3 text-slate-600 md:table-cell dark:text-slate-300">{{ item.positionTitle }}</td>
+                                <td class="px-4 py-3">
+                                    {{ ui.status_badge(item.status) }}
+                                    {# On small screens the score sits under the status instead of its own column. #}
+                                    <div class="mt-1.5 sm:hidden">{{ ui.score(item.aiScore, item.screeningStatus) }}</div>
+                                </td>
+                                <td class="hidden px-4 py-3 text-right sm:table-cell">{{ ui.score(item.aiScore, item.screeningStatus) }}</td>
+                                <td class="meta hidden px-4 py-3 text-right tabular-nums sm:table-cell">{{ ui.time(item.appliedAt) }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <nav class="flex items-center justify-between gap-4 border-t border-slate-200 px-4 py-3 text-sm dark:border-slate-800" aria-label="Pagination">
+                <p class="meta tabular-nums">
+                    Showing {{ (page.page - 1) * page.perPage + 1 }}–{{ (page.page - 1) * page.perPage + page.items|length }} of {{ page.total }}
+                </p>
+                <div class="flex gap-2">
+                    {% if page.page > 1 %}
+                        <a href="{{ path('applications_index', pageParams|merge({page: page.page - 1})) }}" class="btn btn-secondary !py-1.5">Previous</a>
+                    {% endif %}
+                    {% if page.hasNextPage %}
+                        <a href="{{ path('applications_index', pageParams|merge({page: page.page + 1})) }}" class="btn btn-secondary !py-1.5">Next</a>
+                    {% endif %}
+                </div>
+            </nav>
+        {% endif %}
+    </div>
+
+    {# Keep refreshing while any visible application is still being analysed. #}
+    {% if page.items|filter(i => i.screeningStatus == 'pending')|length %}
+        <div hidden data-controller="poll" data-poll-url-value="{{ path('applications_index', pageParams|merge({page: page.page})) }}"></div>
+    {% endif %}
+</turbo-frame>

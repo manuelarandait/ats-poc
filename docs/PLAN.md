@@ -11,12 +11,11 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 - [x] **3. Submit use case (command side)** — `SubmitJobApplication` command + handler, Doctrine repository, migrations, job-offer fixtures, domain events published after commit. Integration tests.
 - [x] **4. Screening context (async enrichment)** — reacts to `JobApplicationSubmitted` via RabbitMQ, `CvAnalyzer` port + mocked LLM adapter, emits the result back; Recruitment attaches summary + score. Idempotency, retries, failure path. Tests.
 - [x] **5. Read side (query side)** — list (newest first, filters by status/position, search by name/email) and detail queries, read models / DTOs. Integration tests.
-- [ ] **6. UI** — Apply, Applications (real-time filtering with Stimulus), Detail; Tailwind. Functional tests for the main flows.
+- [x] **6. UI** — Apply, Applications (real-time filtering with Stimulus), Detail; Tailwind. Functional tests for the main flows.
 - [ ] **7. Docs & polish** — README (run, test, architecture & event-flow overview), final review against acceptance criteria.
 
 ## Open questions (to decide in their iteration)
 
-- Iteration 6: UI language, dark mode, polling vs Mercure for "enrichment pending → done".
 
 ## Decision log
 
@@ -70,3 +69,10 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 | 46 | Detail DTO exposes `nextStatuses()` computed from the domain enum | The UI only offers transitions the domain accepts; the rule isn't duplicated. |
 | 47 | Foundry factories build aggregates through `submit()` + behaviour (`inStatus()`, `screened()`) | Tests seed realistic data fast without bypassing domain invariants. |
 | 48 | Keep Doctrine mapping in XML (reviewed: author usually prefers YAML) | Doctrine ORM 3.0 removed the YAML drivers; XML is the remaining option that keeps the domain free of ORM attributes, with XSD validation and IDE completion. Attributes would be simpler but couple the domain to Doctrine. |
+| 49 | Apply flow: `/jobs` catalog → `/jobs/{id}` (description + form) → confirmation page (Post/Redirect/Get) | Matches the brief ("a page with a job description where a candidate submits"); the position is implicit; reloading never resubmits. |
+| 50 | Real-time filtering with Turbo Frames + a tiny Stimulus debounce; frame requests render only the results partial; the URL follows the filters | Server-rendered HTML from one Twig template (no duplicated rendering in JS); shareable URLs and Back button work; still a plain GET form without JS. |
+| 51 | "Pending → done" by polling: the server renders a poll marker inside the frame only while an analysis is pending | No extra infrastructure (vs Mercure); polling stops by itself when the HTML no longer contains the marker. |
+| 52 | English UI with dark mode: `.dark` class strategy, OS preference by default, toggle remembered in `localStorage`, applied before paint | Brief is in English; dark mode requested by the author; no theme flash on load. |
+| 53 | Symfony Form bound to a request DTO validated at the edge; domain rejections mapped back to their field; stateless CSRF for forms, session CSRF token for the status change | Friendly field errors, while the domain still validates everything (defence in depth). |
+| 54 | Invokable controllers (one per action), no `AbstractController`, talking only to the command/query buses | Controllers stay thin adapters: HTTP ⇄ command/query. |
+| 55 | Tailwind v4 through the standalone binary (symfonycasts/tailwind-bundle), component classes with `@apply`, built by `make init` | Modern styling without Node; one definition per component (buttons, cards, inputs), dark variants included. |

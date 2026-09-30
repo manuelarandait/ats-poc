@@ -83,6 +83,7 @@ src/
 │   │   ├── ListJobOffers/                     ← lado de lectura
 │   │   └── JobApplicationReadModel.php        puerto del lado de lectura
 │   └── Infrastructure/
+│       ├── Http/                       controllers invocables, formulario de envío + DTO de la petición
 │       ├── Persistence/Doctrine/       repositorios, mapping XML, tipos DBAL, listeners de esquema
 │       ├── Persistence/Dbal/           modelos de lectura en SQL (lado de queries)
 │       └── Fixtures/                   datos de demo

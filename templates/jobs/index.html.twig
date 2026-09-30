@@ -1,0 +1,33 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Open positions{% endblock %}
+
+{% import 'components/ui.html.twig' as ui %}
+
+{% block body %}
+    <div class="mb-8">
+        <h1 class="text-2xl font-semibold">Open positions</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Pick a role, read the description and apply by pasting your CV. An AI assistant summarises every application for the hiring team.</p>
+    </div>
+
+    {% if offers is empty %}
+        <div class="card">
+            {{ ui.empty_state('No open positions', 'Load the demo data with make fixtures.') }}
+        </div>
+    {% else %}
+        <ul class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {% for offer in offers %}
+                <li class="card group relative flex flex-col p-6 transition hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-500/50">
+                    <h2 class="text-lg font-medium">
+                        <a href="{{ path('jobs_show', {id: offer.id}) }}" class="focus-visible:outline-none">
+                            <span class="absolute inset-0 rounded-xl" aria-hidden="true"></span>
+                            {{ offer.title }}
+                        </a>
+                    </h2>
+                    <p class="mt-2 line-clamp-4 text-sm text-slate-600 dark:text-slate-400">{{ offer.description }}</p>
+                    <span class="link mt-auto pt-4 text-sm">View &amp; apply <span aria-hidden="true">→</span></span>
+                </li>
+            {% endfor %}
+        </ul>
+    {% endif %}
+{% endblock %}
