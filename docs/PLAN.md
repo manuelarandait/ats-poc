@@ -69,3 +69,4 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 | 45 | Offset pagination (20 per page, max 100) with total count; tie-break on `id` (UUID v7, time-ordered) | Simple, fits filters and a page UI. Keyset pagination would be the choice for very large tables. |
 | 46 | Detail DTO exposes `nextStatuses()` computed from the domain enum | The UI only offers transitions the domain accepts; the rule isn't duplicated. |
 | 47 | Foundry factories build aggregates through `submit()` + behaviour (`inStatus()`, `screened()`) | Tests seed realistic data fast without bypassing domain invariants. |
+| 48 | Keep Doctrine mapping in XML (reviewed: author usually prefers YAML) | Doctrine ORM 3.0 removed the YAML drivers; XML is the remaining option that keeps the domain free of ORM attributes, with XSD validation and IDE completion. Attributes would be simpler but couple the domain to Doctrine. |
