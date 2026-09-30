@@ -27,10 +27,11 @@ final class JobOfferFixtures extends Fixture
                 'Senior PHP Backend Engineer',
                 <<<'TXT'
                     Join the team building our recruiting platform backend.
-                    You will design and evolve services with PHP 8 and Symfony following DDD and hexagonal
-                    architecture, integrate asynchronous processes through RabbitMQ and own their PostgreSQL
-                    persistence. Requirements: 5+ years with PHP, strong Symfony and Doctrine knowledge,
-                    automated testing (PHPUnit), Docker, messaging/queues and clean code practices.
+
+                    You will design and evolve services with PHP 8 and Symfony following DDD and hexagonal architecture, integrate asynchronous processes through RabbitMQ and own their PostgreSQL persistence.
+
+                    Requirements: 5+ years with PHP, strong Symfony and Doctrine knowledge, automated testing (PHPUnit), Docker, messaging/queues and clean code practices.
+
                     Nice to have: CQRS, event-driven design, API Platform, CI/CD.
                     TXT,
             ],
@@ -38,19 +39,23 @@ final class JobOfferFixtures extends Fixture
                 'Frontend Engineer (React / TypeScript)',
                 <<<'TXT'
                     Build fast, accessible interfaces for recruiters and candidates.
-                    You will develop features with React and TypeScript, contribute to our design system and
-                    care about accessibility (WCAG), performance and UX details. Requirements: 3+ years with
-                    React and TypeScript, CSS/Tailwind, component testing (Jest, Testing Library) and end-to-end
-                    testing (Playwright). Nice to have: Next.js, Storybook, design sensibility.
+
+                    You will develop features with React and TypeScript, contribute to our design system and care about accessibility (WCAG), performance and UX details.
+
+                    Requirements: 3+ years with React and TypeScript, CSS/Tailwind, component testing (Jest, Testing Library) and end-to-end testing (Playwright).
+
+                    Nice to have: Next.js, Storybook, design sensibility.
                     TXT,
             ],
             self::DATA_ENGINEER => [
                 'Data Engineer (Python)',
                 <<<'TXT'
                     Own the pipelines that turn recruiting activity into insights.
-                    You will build and operate batch and streaming data pipelines with Python, Airflow and dbt,
-                    model data in the warehouse with advanced SQL and run workloads on AWS. Requirements: 3+ years
-                    with Python and SQL, orchestration (Airflow), data modelling, cloud (AWS).
+
+                    You will build and operate batch and streaming data pipelines with Python, Airflow and dbt, model data in the warehouse with advanced SQL and run workloads on AWS.
+
+                    Requirements: 3+ years with Python and SQL, orchestration (Airflow), data modelling, cloud (AWS).
+
                     Nice to have: Spark, Kafka, data quality tooling.
                     TXT,
             ],

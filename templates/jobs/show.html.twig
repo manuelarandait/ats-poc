@@ -1,0 +1,41 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ offer.title }}{% endblock %}
+
+{% block body %}
+    <a href="{{ path('jobs_index') }}" class="link text-sm"><span aria-hidden="true">←</span> All positions</a>
+
+    <div class="mt-4 grid gap-8 lg:grid-cols-5">
+        <article class="lg:col-span-2">
+            <h1 class="text-2xl font-semibold">{{ offer.title }}</h1>
+            <div class="mt-4 whitespace-pre-line text-sm leading-relaxed text-slate-700 dark:text-slate-300">{{ offer.description }}</div>
+        </article>
+
+        <section class="card p-6 lg:col-span-3" aria-labelledby="apply-title">
+            <h2 id="apply-title" class="text-lg font-medium">Apply for this position</h2>
+            <p class="meta mt-1">Fields marked * are required. We'll analyse your CV right after you apply.</p>
+
+            {{ form_start(form, {attr: {class: 'mt-6 space-y-5', novalidate: 'novalidate'}}) }}
+                {{ form_errors(form) }}
+
+                <div class="grid gap-5 sm:grid-cols-2">
+                    <div class="sm:col-span-2">{{ form_row(form.fullName) }}</div>
+                    {{ form_row(form.email) }}
+                    {{ form_row(form.phone) }}
+                </div>
+
+                <div data-controller="char-counter" data-char-counter-max-value="{{ constant('App\\Recruitment\\Domain\\JobApplication\\CvText::MAX_LENGTH') }}">
+                    {{ form_row(form.cv) }}
+                    <p class="meta mt-1 text-right tabular-nums" data-char-counter-target="count" aria-live="polite"></p>
+                </div>
+
+                {{ form_row(form.notes) }}
+
+                <div class="flex items-center justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-800">
+                    <a href="{{ path('jobs_index') }}" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Submit application</button>
+                </div>
+            {{ form_end(form) }}
+        </section>
+    </div>
+{% endblock %}
