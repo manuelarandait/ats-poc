@@ -1,4 +1,10 @@
 parameters:
+    # Contracts between bounded contexts: event name on the wire => the class the
+    # *consuming* context owns to read it. Publishers and consumers never share classes.
+    app.event_consumers:
+        recruitment.job_application.submitted: App\Screening\Application\ScreenCv\JobApplicationSubmitted
+        screening.cv_screened: App\Recruitment\Application\CompleteJobApplicationScreening\CvScreened
+        screening.cv_screening_failed: App\Recruitment\Application\FailJobApplicationScreening\CvScreeningFailed
 
 services:
     _defaults:

@@ -15,6 +15,7 @@ use App\Recruitment\Domain\JobApplication\JobApplication;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus as Status;
 use App\Recruitment\Domain\JobApplication\Notes;
+use App\Recruitment\Domain\JobOffer\JobOffer;
 use App\Recruitment\Domain\JobOffer\JobOfferId;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
@@ -45,7 +46,7 @@ final class JobApplicationFixtures extends Fixture implements DependentFixtureIn
 
             $application = JobApplication::submit(
                 JobApplicationId::fromString(\sprintf('0192f5a1-0000-7000-8000-%012d', $i + 1)),
-                JobOfferId::fromString($data['offer']),
+                $this->offer($manager, $data['offer']),
                 new Candidate(FullName::fromString($data['name']), Email::fromString($data['email']), Phone::fromNullable($data['phone'])),
                 CvText::fromString($data['cv']),
                 Notes::fromNullable($data['notes']),
@@ -68,6 +69,17 @@ final class JobApplicationFixtures extends Fixture implements DependentFixtureIn
         }
 
         $manager->flush();
+    }
+
+    /**
+     * find() instead of fixture references: getReference() hands out lazy
+     * proxies, and Doctrine can't initialise a proxy whose readonly id is a
+     * value object (it sees the re-hydrated id as a change).
+     */
+    private function offer(ObjectManager $manager, string $id): JobOffer
+    {
+        return $manager->find(JobOffer::class, JobOfferId::fromString($id))
+            ?? throw new \LogicException(\sprintf('Job offer fixture "%s" not loaded.', $id));
     }
 
     /**

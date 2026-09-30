@@ -15,20 +15,28 @@ framework:
         transports:
             async:
                 dsn: '%env(MESSENGER_TRANSPORT_DSN)%'
+                # JSON on the wire, the event name is the contract (see app.event_consumers)
+                serializer: App\Shared\Infrastructure\Bus\Messenger\JsonEventSerializer
                 retry_strategy:
                     max_retries: 3
                     delay: 1000
                     multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
 
+        # Only events that cross a bounded context go through RabbitMQ (handled by
+        # the worker, never inside the HTTP request). The rest stay in-process.
         routing:
-            # Every domain event leaves the process through RabbitMQ: consumers run
-            # in the worker, never inside the HTTP request that caused the event.
-            App\Shared\Domain\DomainEvent: async
+            App\Recruitment\Domain\JobApplication\Event\JobApplicationSubmitted: async
+            App\Screening\Domain\Event\CvScreened: async
+            App\Screening\Domain\Event\CvScreeningFailed: async
 
 when@test:
     framework:
         messenger:
             transports:
-                async: 'in-memory://'
+                # serialize=true: tests go through the same JSON contract as RabbitMQ
+                async:
+                    dsn: 'in-memory://?serialize=true'
+                    # Same number of retries, without waiting for the back-off
+                    retry_strategy: { delay: 0 }
                 failed: 'in-memory://'
