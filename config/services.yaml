@@ -16,6 +16,8 @@ services:
     _instanceof:
         App\Shared\Domain\Bus\Command\CommandHandler:
             tags: [{ name: messenger.message_handler, bus: command.bus }]
+        App\Shared\Domain\Bus\Query\QueryHandler:
+            tags: [{ name: messenger.message_handler, bus: query.bus }]
         App\Shared\Domain\Bus\Event\DomainEventSubscriber:
             tags: [{ name: messenger.message_handler, bus: event.bus }]
 
@@ -29,4 +31,7 @@ when@test:
         # Entry points used by integration tests before any controller exists.
         App\Shared\Domain\Bus\Command\CommandBus:
             alias: App\Shared\Infrastructure\Bus\Messenger\MessengerCommandBus
+            public: true
+        App\Shared\Domain\Bus\Query\QueryBus:
+            alias: App\Shared\Infrastructure\Bus\Messenger\MessengerQueryBus
             public: true

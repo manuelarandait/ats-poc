@@ -4,6 +4,14 @@
                   xsi:schemaLocation="http://doctrine-project.org/schemas/orm/doctrine-mapping
                                       https://www.doctrine-project.org/schemas/orm/doctrine-mapping.xsd">
     <entity name="App\Recruitment\Domain\JobApplication\JobApplication" table="job_application">
+        <!-- Read side: newest-first listing and its filters (see DbalJobApplicationReadModel).
+             Trigram indexes for the name/email search can't be expressed here: see TrigramSearchIndexes. -->
+        <indexes>
+            <index name="idx_job_application_applied_at" columns="applied_at,id"/>
+            <index name="idx_job_application_status" columns="status"/>
+            <index name="idx_job_application_job_offer" columns="job_offer_id"/>
+        </indexes>
+
         <id name="id" type="job_application_id"/>
 
         <field name="jobOfferId" type="job_offer_id"/>

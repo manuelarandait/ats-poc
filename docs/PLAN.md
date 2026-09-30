@@ -10,14 +10,12 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 - [x] **CI** — GitHub Actions runs `make init`, `make qa` and `make test` on every PR and on `main`.
 - [x] **3. Submit use case (command side)** — `SubmitJobApplication` command + handler, Doctrine repository, migrations, job-offer fixtures, domain events published after commit. Integration tests.
 - [x] **4. Screening context (async enrichment)** — reacts to `JobApplicationSubmitted` via RabbitMQ, `CvAnalyzer` port + mocked LLM adapter, emits the result back; Recruitment attaches summary + score. Idempotency, retries, failure path. Tests.
-- [ ] **5. Read side (query side)** — list (newest first, filters by status/position, search by name/email) and detail queries, read models / DTOs. Integration tests.
+- [x] **5. Read side (query side)** — list (newest first, filters by status/position, search by name/email) and detail queries, read models / DTOs. Integration tests.
 - [ ] **6. UI** — Apply, Applications (real-time filtering with Stimulus), Detail; Tailwind. Functional tests for the main flows.
 - [ ] **7. Docs & polish** — README (run, test, architecture & event-flow overview), final review against acceptance criteria.
 
 ## Open questions (to decide in their iteration)
 
-- Iteration 5: Foundry factories (instantiated through named constructors) for the read-side tests with many rows.
-- Iteration 5: read model = Doctrine DBAL queries over the same table vs a dedicated projection table.
 - Iteration 6: UI language, dark mode, polling vs Mercure for "enrichment pending → done".
 
 ## Decision log
@@ -64,3 +62,10 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 | 38 | Mock LLM: deterministic, explainable score (80 % skill coverage + 20 % seniority) and summary; latency and random failure rate via env; a CV marker forces a failure | Brief forbids real LLM calls; deterministic output is testable; latency/failures exercise the async UX and retry path. Real LLM = new `CvAnalyzer` adapter. |
 | 39 | Async tests run a real Messenger `Worker` over the in-memory transport with serialization on (no back-off delay in test) | Tests exercise the same JSON contract, retry and failure listeners as production, in milliseconds. |
 | 40 | All Symfony packages aligned on 8.1 + `symfony/doctrine-messenger` | Fixes an incomplete upgrade (some packages were still 7.4) and a failure transport that could not work without its bridge — both found by running the real stack. |
+| 41 | Read side = plain SQL (DBAL) over the write tables straight into DTOs, behind read-model ports in Application (no projection table) | CQRS at code level: reads never load aggregates or the unit of work; strong consistency, no extra moving parts. A projection table is the next step if reads and writes ever need to scale apart. |
+| 42 | Typed query bus: `Query<TResponse>` generics, `ask()` returns the declared DTO | Controllers get typed results with PHPStan max, no casts. |
+| 43 | Search = case-insensitive "contains" (`ILIKE`) on name or email, backed by `pg_trgm` GIN indexes; user wildcards escaped | Fast substring search as data grows (verified with `EXPLAIN`: BitmapOr over both indexes). Not accent-insensitive (would need `unaccent`). |
+| 44 | Btree indexes declared in the XML mapping; trigram indexes created in the migration and declared to Doctrine by a `postGenerateSchema` listener | Doctrine mapping can't express GIN/opclasses; without the listener every `migrations:diff` would propose dropping them. |
+| 45 | Offset pagination (20 per page, max 100) with total count; tie-break on `id` (UUID v7, time-ordered) | Simple, fits filters and a page UI. Keyset pagination would be the choice for very large tables. |
+| 46 | Detail DTO exposes `nextStatuses()` computed from the domain enum | The UI only offers transitions the domain accepts; the rule isn't duplicated. |
+| 47 | Foundry factories build aggregates through `submit()` + behaviour (`inStatus()`, `screened()`) | Tests seed realistic data fast without bypassing domain invariants. |
