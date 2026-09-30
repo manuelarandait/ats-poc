@@ -83,6 +83,7 @@ src/
 │   │   ├── ListJobOffers/                     ← read side
 │   │   └── JobApplicationReadModel.php        read-side port
 │   └── Infrastructure/
+│       ├── Http/                       invokable controllers, apply form + request DTO
 │       ├── Persistence/Doctrine/       repositories, XML mapping, DBAL types, schema listeners
 │       ├── Persistence/Dbal/           SQL read models (query side)
 │       └── Fixtures/                   demo data
