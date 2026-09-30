@@ -4,7 +4,7 @@ Minimal Application Tracking System: candidates apply to a job pasting their CV 
 
 ## Documentation
 
-- [Architecture](docs/ARCHITECTURE.md) — how the code is organised and why (hexagonal vs classic Symfony)
+- [Architecture](docs/ARCHITECTURE.md) ([español](docs/ARCHITECTURE.es.md)) — how the code is organised and why (hexagonal vs classic Symfony)
 - [Work plan & decision log](docs/PLAN.md)
 
 ## Requirements

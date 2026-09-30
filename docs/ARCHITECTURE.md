@@ -1,5 +1,7 @@
 # Architecture
 
+🇪🇸 [Versión en español](ARCHITECTURE.es.md)
+
 This document explains **how the application is organised and why**, compared with the classic Symfony layout (`Controller/`, `Entity/`, `Repository/`, `Service/`), and gives a general map of the system: runtime pieces, domain model, use cases and the flows between them. The reasoning behind each individual choice lives in the [decision log](PLAN.md#decision-log).
 
 ## Contents
