@@ -20,4 +20,9 @@ final readonly class JobApplicationScreened extends DomainEvent
     {
         return 'recruitment.job_application.screened';
     }
+
+    public function toPrimitives(): array
+    {
+        return ['score' => $this->score];
+    }
 }

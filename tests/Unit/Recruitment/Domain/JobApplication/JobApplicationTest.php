@@ -11,8 +11,8 @@ use App\Recruitment\Domain\JobApplication\Event\JobApplicationSubmitted;
 use App\Recruitment\Domain\JobApplication\InvalidStatusTransition;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobApplication\ScreeningStatus;
-use App\Recruitment\Domain\JobOffer\JobOfferId;
 use App\Tests\Recruitment\Domain\JobApplication\JobApplicationMother;
+use App\Tests\Recruitment\Domain\JobOffer\JobOfferMother;
 use PHPUnit\Framework\TestCase;
 
 final class JobApplicationTest extends TestCase
@@ -41,16 +41,16 @@ final class JobApplicationTest extends TestCase
         self::assertNull($application->screenedAt);
     }
 
-    public function test_submitting_records_a_job_application_submitted_event(): void
+    public function test_submitting_records_an_event_carrying_the_cv_and_the_position(): void
     {
         $id = JobApplicationMother::id();
-        $jobOfferId = JobOfferId::fromString('0192f5a0-7c3b-7d2e-9a1b-3c4d5e6f7a8b');
+        $offer = JobOfferMother::create(title: 'Senior PHP Developer', description: 'Symfony and DDD.');
         $appliedAt = new \DateTimeImmutable('2026-09-01 10:00:00');
 
-        $application = JobApplicationMother::submitted(id: $id, jobOfferId: $jobOfferId, appliedAt: $appliedAt);
+        $application = JobApplicationMother::submitted(id: $id, jobOffer: $offer, cv: 'PHP developer.', appliedAt: $appliedAt);
 
         self::assertEquals(
-            [new JobApplicationSubmitted($id->value, $jobOfferId->value, $appliedAt)],
+            [new JobApplicationSubmitted($id->value, $offer->id->value, 'Senior PHP Developer', 'Symfony and DDD.', 'PHP developer.', $appliedAt)],
             $application->pullDomainEvents(),
         );
     }

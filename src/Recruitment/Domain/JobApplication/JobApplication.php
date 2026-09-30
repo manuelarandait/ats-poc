@@ -9,6 +9,7 @@ use App\Recruitment\Domain\JobApplication\Event\JobApplicationScreened;
 use App\Recruitment\Domain\JobApplication\Event\JobApplicationScreeningFailed;
 use App\Recruitment\Domain\JobApplication\Event\JobApplicationStatusChanged;
 use App\Recruitment\Domain\JobApplication\Event\JobApplicationSubmitted;
+use App\Recruitment\Domain\JobOffer\JobOffer;
 use App\Recruitment\Domain\JobOffer\JobOfferId;
 use App\Shared\Domain\AggregateRoot;
 
@@ -35,9 +36,13 @@ final class JobApplication extends AggregateRoot
     ) {
     }
 
+    /**
+     * The offer is passed whole so the event can carry the position applied to
+     * (event-carried state transfer): the screening needs no call back to us.
+     */
     public static function submit(
         JobApplicationId $id,
-        JobOfferId $jobOfferId,
+        JobOffer $jobOffer,
         Candidate $candidate,
         CvText $cv,
         ?Notes $notes,
@@ -45,7 +50,7 @@ final class JobApplication extends AggregateRoot
     ): self {
         $application = new self(
             id: $id,
-            jobOfferId: $jobOfferId,
+            jobOfferId: $jobOffer->id,
             candidate: $candidate,
             cv: $cv,
             notes: $notes,
@@ -57,7 +62,14 @@ final class JobApplication extends AggregateRoot
             updatedAt: $appliedAt,
         );
 
-        $application->record(new JobApplicationSubmitted($id->value, $jobOfferId->value, $appliedAt));
+        $application->record(new JobApplicationSubmitted(
+            $id->value,
+            $jobOffer->id->value,
+            $jobOffer->title,
+            $jobOffer->description,
+            $cv->value,
+            $appliedAt,
+        ));
 
         return $application;
     }
