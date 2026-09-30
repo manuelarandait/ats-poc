@@ -25,6 +25,14 @@ enum JobApplicationStatus: string
         return self::Received;
     }
 
+    /**
+     * Like from(), but raises a domain error instead of PHP's \ValueError.
+     */
+    public static function fromValue(string $value): self
+    {
+        return self::tryFrom($value) ?? throw UnknownJobApplicationStatus::fromValue($value);
+    }
+
     public function canTransitionTo(self $next): bool
     {
         return \in_array($next, $this->nextAllowed(), true);

@@ -21,7 +21,10 @@ framework:
                     multiplier: 2
             failed: 'doctrine://default?queue_name=failed'
 
-        routing: {}
+        routing:
+            # Every domain event leaves the process through RabbitMQ: consumers run
+            # in the worker, never inside the HTTP request that caused the event.
+            App\Shared\Domain\DomainEvent: async
 
 when@test:
     framework:

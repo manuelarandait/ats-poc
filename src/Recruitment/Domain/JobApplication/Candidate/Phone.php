@@ -18,6 +18,14 @@ final readonly class Phone
     {
     }
 
+    /**
+     * The phone is optional: blank input means "no phone".
+     */
+    public static function fromNullable(?string $value): ?self
+    {
+        return null === $value || '' === trim($value) ? null : self::fromString($value);
+    }
+
     public static function fromString(string $value): self
     {
         $trimmed = trim($value);
