@@ -1,0 +1,115 @@
+{% extends 'base.html.twig' %}
+{% import 'components/ui.html.twig' as ui %}
+
+{% block title %}{{ application.candidateName }}{% endblock %}
+
+{% block body %}
+    <a href="{{ path('applications_index') }}" class="link text-sm"><span aria-hidden="true">←</span> All applications</a>
+
+    {# While the AI is analysing, this frame reloads itself until the result arrives. #}
+    <turbo-frame id="application-detail" class="mt-4 block">
+        <header class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+                <h1 class="text-2xl font-semibold">{{ application.candidateName }}</h1>
+                <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                    Applied for <span class="font-medium text-slate-700 dark:text-slate-200">{{ application.positionTitle }}</span> · {{ ui.time(application.appliedAt) }}
+                </p>
+            </div>
+            <div class="flex items-center gap-2" aria-live="polite">
+                {{ ui.status_badge(application.status) }}
+                {{ ui.screening_badge(application.screeningStatus) }}
+            </div>
+        </header>
+
+        <div class="mt-6 grid gap-6 lg:grid-cols-3">
+            <div class="space-y-6 lg:col-span-2">
+                <section class="card p-6" aria-labelledby="ai-title">
+                    <div class="flex items-center justify-between gap-4">
+                        <h2 id="ai-title" class="text-lg font-medium">AI screening</h2>
+                        {% if application.aiScore is not null %}
+                            <div class="flex items-baseline gap-2">
+                                <span class="meta">Relevance</span>
+                                {{ ui.score(application.aiScore) }}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div aria-live="polite">
+                        {% if application.screeningStatus == 'completed' %}
+                            <p class="mt-3 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{{ application.aiSummary }}</p>
+                            {% if application.aiScore is not null %}
+                                <div class="mt-4 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800" role="img" aria-label="Score {{ application.aiScore }} out of 100">
+                                    <div class="h-full rounded-full {{ application.aiScore >= 70 ? 'bg-emerald-500' : (application.aiScore >= 40 ? 'bg-amber-500' : 'bg-rose-500') }}" style="width: {{ application.aiScore }}%"></div>
+                                </div>
+                            {% endif %}
+                        {% elseif application.screeningStatus == 'pending' %}
+                            <div class="mt-3 space-y-2" aria-hidden="true">
+                                <div class="h-3 w-full rounded bg-slate-200 motion-safe:animate-pulse dark:bg-slate-800"></div>
+                                <div class="h-3 w-5/6 rounded bg-slate-200 motion-safe:animate-pulse dark:bg-slate-800"></div>
+                                <div class="h-3 w-2/3 rounded bg-slate-200 motion-safe:animate-pulse dark:bg-slate-800"></div>
+                            </div>
+                            <p class="meta mt-3">The AI assistant is analysing this CV. This page updates by itself.</p>
+                        {% else %}
+                            <p class="mt-3 text-sm text-slate-600 dark:text-slate-400">The AI analysis couldn't be completed. The CV is still available below for manual review.</p>
+                        {% endif %}
+                    </div>
+                </section>
+
+                <section class="card p-6" aria-labelledby="cv-title">
+                    <h2 id="cv-title" class="text-lg font-medium">CV</h2>
+                    <pre class="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 dark:bg-slate-950 dark:text-slate-200">{{ application.cv }}</pre>
+                </section>
+
+                {% if application.notes %}
+                    <section class="card p-6" aria-labelledby="notes-title">
+                        <h2 id="notes-title" class="text-lg font-medium">Notes from the candidate</h2>
+                        <p class="mt-3 whitespace-pre-line text-sm text-slate-700 dark:text-slate-300">{{ application.notes }}</p>
+                    </section>
+                {% endif %}
+            </div>
+
+            <aside class="space-y-6">
+                <section class="card p-6" aria-labelledby="status-title">
+                    <h2 id="status-title" class="text-lg font-medium">Status</h2>
+                    <div class="mt-3">{{ ui.status_badge(application.status) }}</div>
+                    {% if application.nextStatuses is not empty %}
+                        <form action="{{ path('applications_change_status', {id: application.id}) }}" method="post" data-turbo-frame="_top" class="mt-4 space-y-2">
+                            <input type="hidden" name="_token" value="{{ csrf_token('change-status-' ~ application.id) }}">
+                            <label for="next-status" class="sr-only">Move to</label>
+                            <select id="next-status" name="status" class="input">
+                                {% for status in application.nextStatuses %}
+                                    <option value="{{ status }}">Move to {{ status|replace({'_': ' '}) }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-primary w-full">Update status</button>
+                        </form>
+                    {% else %}
+                        <p class="meta mt-3">Final status: no further changes.</p>
+                    {% endif %}
+                </section>
+
+                <section class="card p-6" aria-labelledby="candidate-title">
+                    <h2 id="candidate-title" class="text-lg font-medium">Candidate</h2>
+                    <dl class="mt-3 space-y-3 text-sm">
+                        <div><dt class="meta">Email</dt><dd><a href="mailto:{{ application.candidateEmail }}" class="link break-all">{{ application.candidateEmail }}</a></dd></div>
+                        <div><dt class="meta">Phone</dt><dd>{% if application.candidatePhone %}<a href="tel:{{ application.candidatePhone }}" class="link">{{ application.candidatePhone }}</a>{% else %}<span class="text-slate-400">Not provided</span>{% endif %}</dd></div>
+                        <div><dt class="meta">Position</dt><dd><a href="{{ path('jobs_show', {id: application.jobOfferId}) }}" data-turbo-frame="_top" class="link">{{ application.positionTitle }}</a></dd></div>
+                    </dl>
+                </section>
+
+                <section class="card p-6" aria-labelledby="timeline-title">
+                    <h2 id="timeline-title" class="text-lg font-medium">Timeline</h2>
+                    <dl class="mt-3 space-y-3 text-sm">
+                        <div><dt class="meta">Applied</dt><dd class="tabular-nums">{{ application.appliedAt|date('M j, Y · H:i') }} UTC</dd></div>
+                        <div><dt class="meta">AI screened</dt><dd class="tabular-nums">{{ application.screenedAt ? application.screenedAt|date('M j, Y · H:i') ~ ' UTC' : '—' }}</dd></div>
+                        <div><dt class="meta">Last updated</dt><dd class="tabular-nums">{{ application.updatedAt|date('M j, Y · H:i') }} UTC</dd></div>
+                    </dl>
+                </section>
+            </aside>
+        </div>
+
+        {% if application.screeningStatus == 'pending' %}
+            <div hidden data-controller="poll" data-poll-url-value="{{ path('applications_show', {id: application.id}) }}"></div>
+        {% endif %}
+    </turbo-frame>
+{% endblock %}

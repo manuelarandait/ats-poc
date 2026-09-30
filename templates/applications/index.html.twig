@@ -1,0 +1,44 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Applications{% endblock %}
+
+{% block body %}
+    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-semibold">Applications</h1>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Newest first. Filters apply as you type.</p>
+        </div>
+    </div>
+
+    {# GET form: works without JS; with JS it submits on change into the results frame. #}
+    <form action="{{ path('applications_index') }}" method="get" role="search"
+          data-controller="autosubmit" data-turbo-frame="{{ frame }}"
+          class="card mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto]">
+        <div>
+            <label for="q" class="sr-only">Search by name or email</label>
+            <input id="q" type="search" name="q" value="{{ filters.q }}" placeholder="Search by name or email…"
+                   class="input" autocomplete="off" data-action="input->autosubmit#debounced">
+        </div>
+        <div>
+            <label for="status" class="sr-only">Status</label>
+            <select id="status" name="status" class="input" data-action="change->autosubmit#submit">
+                <option value="">All statuses</option>
+                {% for status in statuses %}
+                    <option value="{{ status.value }}" {{ filters.status == status.value ? 'selected' }}>{{ status.value|replace({'_': ' '})|capitalize }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label for="position" class="sr-only">Position</label>
+            <select id="position" name="position" class="input" data-action="change->autosubmit#submit">
+                <option value="">All positions</option>
+                {% for offer in offers %}
+                    <option value="{{ offer.id }}" {{ filters.position == offer.id ? 'selected' }}>{{ offer.title }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <noscript><button type="submit" class="btn btn-secondary">Filter</button></noscript>
+    </form>
+
+    {{ include('applications/_results.html.twig') }}
+{% endblock %}
