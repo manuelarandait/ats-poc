@@ -23,7 +23,9 @@
                     <label for="password" class="label">Password</label>
                     <input type="password" id="password" name="password" class="input" autocomplete="current-password" required>
                 </div>
-                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+                {# Stateless CSRF: the csrf-protection Stimulus controller turns this into a
+                   double-submit token (cookie + field), like Symfony's form theme does. #}
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}" data-controller="csrf-protection">
                 <button type="submit" class="btn btn-primary w-full">Sign in</button>
             </form>
         </div>

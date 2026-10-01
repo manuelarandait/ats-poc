@@ -95,4 +95,20 @@ final class RecruiterAccessTest extends WebTestCase
         $this->client->request('GET', '/applications');
         self::assertResponseRedirects('/login');
     }
+
+    /**
+     * Regression: CSRF tokens here are stateless. Once a session has used the
+     * double-submit strategy (any Symfony form does, through the lazy
+     * csrf-protection Stimulus controller), Symfony requires it for every later
+     * token. Login and logout fields must opt in too, or a candidate who applied
+     * and then signs in gets "Invalid CSRF token".
+     */
+    public function test_login_and_logout_csrf_fields_use_the_double_submit_controller(): void
+    {
+        $this->client->request('GET', '/login');
+        self::assertSelectorExists('form input[name="_csrf_token"][data-controller="csrf-protection"]');
+
+        RecruiterLogin::as($this->client)->request('GET', '/applications');
+        self::assertSelectorExists('nav form input[name="_csrf_token"][data-controller="csrf-protection"]');
+    }
 }
