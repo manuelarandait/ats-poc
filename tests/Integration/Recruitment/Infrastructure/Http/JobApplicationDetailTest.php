@@ -9,6 +9,7 @@ use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobApplication\Notes;
 use App\Tests\Recruitment\Factory\JobApplicationFactory;
 use App\Tests\Recruitment\Factory\JobOfferFactory;
+use App\Tests\Shared\Infrastructure\Security\RecruiterLogin;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 
@@ -22,7 +23,7 @@ final class JobApplicationDetailTest extends WebTestCase
 
     protected function setUp(): void
     {
-        $this->client = self::createClient();
+        $this->client = RecruiterLogin::as(self::createClient());
     }
 
     public function test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps(): void

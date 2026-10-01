@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Recruiter login{% endblock %}
+
+{% block body %}
+    <div class="mx-auto max-w-sm">
+        <div class="card p-8">
+            <h1 class="text-2xl font-semibold">Recruiter area</h1>
+            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Sign in to review applications. Candidates don't need an account.</p>
+
+            {% if error %}
+                <div role="alert" class="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                    {{ error.messageKey|trans(error.messageData, 'security') }}
+                </div>
+            {% endif %}
+
+            <form method="post" action="{{ path('login') }}" class="mt-6 space-y-5" data-turbo="false">
+                <div class="space-y-1">
+                    <label for="email" class="label">Email</label>
+                    <input type="email" id="email" name="email" value="{{ lastEmail }}" class="input" autocomplete="username" required autofocus>
+                </div>
+                <div class="space-y-1">
+                    <label for="password" class="label">Password</label>
+                    <input type="password" id="password" name="password" class="input" autocomplete="current-password" required>
+                </div>
+                {# Stateless CSRF: the csrf-protection Stimulus controller turns this into a
+                   double-submit token (cookie + field), like Symfony's form theme does. #}
+                <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}" data-controller="csrf-protection">
+                <button type="submit" class="btn btn-primary w-full">Sign in</button>
+            </form>
+        </div>
+
+        <p class="mt-4 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            Demo account: <span class="font-mono text-slate-700 dark:text-slate-200">recruiter@ats.test</span> / <span class="font-mono text-slate-700 dark:text-slate-200">recruiter</span>
+        </p>
+    </div>
+{% endblock %}
