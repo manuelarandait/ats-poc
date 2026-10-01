@@ -31,6 +31,10 @@ services:
 
   database:
     image: postgres:16-alpine
+    # Published for GUI clients (TablePlus, DBeaver…): localhost:5433, app / app.
+    # 5433 avoids clashing with a PostgreSQL already running on the host.
+    ports:
+      - "5433:5432"
     environment:
       POSTGRES_DB: app
       POSTGRES_USER: app
