@@ -29,7 +29,7 @@ Goal: a **simple, calm, professional** recruiter tool — think Linear / Ashby, 
 
 ## Components (Twig)
 
-- Reusable pieces as Twig partials/macros in `templates/components/`: `badge`, `score`, `button`, `field`, `empty_state`. Never duplicate the class soup of a component in two templates.
+- Reusable pieces as anonymous **Twig Components** in `templates/components/` (`<twig:StatusBadge :status="…" />`, `Score`, `ScreeningBadge`, `EmptyState`, `Time`); buttons, cards and inputs as CSS component classes (`.btn`, `.card`, `.input`). Never duplicate the class soup of a component in two templates.
 - **Buttons**: one primary per screen; secondary are white with border.
 - **Forms**: visible `<label>` for every field, helper text under the field, inline error messages in `text-rose-600` next to the field, required fields marked. The CV textarea is large (`rows="14"`), monospace, with a character counter.
 - **Tables**: sticky header, row hover, whole row clickable to the detail, right-aligned numeric columns, relative time with absolute time in `title`.

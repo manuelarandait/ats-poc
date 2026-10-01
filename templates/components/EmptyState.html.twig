@@ -1,0 +1,10 @@
+{# Friendly empty state with an optional call to action.
+   Usage: <twig:EmptyState title="…" text="…" :actionUrl="path('…')" actionLabel="…" /> #}
+{% props title, text, actionUrl = null, actionLabel = null %}
+<div {{ attributes.defaults({class: 'px-6 py-16 text-center'}) }}>
+    <p class="text-base font-medium text-slate-900 dark:text-slate-100">{{ title }}</p>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">{{ text }}</p>
+    {% if actionUrl %}
+        <a href="{{ actionUrl }}" class="btn btn-secondary mt-6" data-turbo-frame="_top">{{ actionLabel }}</a>
+    {% endif %}
+</div>
