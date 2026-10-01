@@ -38,7 +38,7 @@ It builds the image, starts the containers, installs dependencies, runs the migr
 5. **See a failure handled** — apply with a CV that contains `[simulate-llm-failure]`: the worker retries 3 times with back-off and the application ends up *AI unavailable* instead of staying pending forever.
 6. **Look behind the scenes** — `make logs` follows the worker; the RabbitMQ UI shows the `messages` queue; `docker compose exec app php bin/console messenger:failed:show` lists messages that exhausted their retries.
 
-The demo data (`make fixtures`) contains three job offers and eight applications in varied states.
+The demo data (`make fixtures`) contains three job offers and 32 applications in varied states (eight hand-written, 24 generated with a fixed seed), enough to page through the list.
 
 ## Tests and quality
 
