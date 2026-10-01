@@ -12,7 +12,7 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 - [x] **4. Screening context (async enrichment)** — reacts to `JobApplicationSubmitted` via RabbitMQ, `CvAnalyzer` port + mocked LLM adapter, emits the result back; Recruitment attaches summary + score. Idempotency, retries, failure path. Tests.
 - [x] **5. Read side (query side)** — list (newest first, filters by status/position, search by name/email) and detail queries, read models / DTOs. Integration tests.
 - [x] **6. UI** — Apply, Applications (real-time filtering with Stimulus), Detail; Tailwind. Functional tests for the main flows.
-- [ ] **7. Docs & polish** — README (run, test, architecture & event-flow overview), final review against acceptance criteria.
+- [x] **7. Docs & polish** — README (run, test, architecture & event-flow overview), final review against acceptance criteria.
 
 ## Open questions (to decide in their iteration)
 
@@ -80,3 +80,6 @@ Each iteration ends with green `make test` + `make qa`, a review with the author
 | 57 | Recruiter area behind a login (`/applications…` requires `ROLE_RECRUITER`); candidates apply without an account (not in the brief, added by the author) | Realistic split between the public side and the recruiter side; CVs and contact data are no longer public. Candidate accounts left out: they would require linking applications to users in the domain. |
 | 58 | Symfony Security with an in-memory demo account (hashed in `security.yaml`), form login with CSRF, POST logout | Authentication stays entirely at the edge: domain and use cases untouched. No users table for a PoC; a real user store would be a new provider. |
 | 59 | Demo credentials shown on the login page and in the README | Zero friction for reviewers. |
+| 60 | Mock LLM weighs skills listed after "Nice to have" at half; the summary separates missing required from missing nice-to-have | Fairer, still explainable scores: missing an optional skill costs less than missing a required one. |
+| 61 | Accent-insensitive search and non-ASCII emails left as documented next steps | Not required by the brief; kept the delivery focused. |
+| 62 | Final README: quick start with URLs/credentials, guided demo, screenshots (light + dark), test levels and an acceptance-criteria → tests table | Reviewers can run, try and verify the brief in minutes, and see exactly which test proves each criterion. |
