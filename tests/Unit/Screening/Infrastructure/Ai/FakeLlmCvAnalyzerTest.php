@@ -75,4 +75,27 @@ final class FakeLlmCvAnalyzerTest extends TestCase
 
         new FakeLlmCvAnalyzer(latencyMs: 0, failureRate: 1.0)->analyse('PHP developer', $this->backendPosition);
     }
+
+    public function test_a_missing_nice_to_have_skill_costs_half_as_much_as_a_missing_required_one(): void
+    {
+        // Weights: PHP 1 + Symfony 1 (required) + Kafka 0.5 + Docker 0.5 (nice to have) = 3
+        $position = new Position('Backend Engineer', "Requirements: PHP, Symfony.\nNice to have: Kafka, Docker.");
+
+        $missesDocker = $this->analyzer->analyse('PHP, Symfony and Kafka developer.', $position);   // 2.5 / 3
+        $missesSymfony = $this->analyzer->analyse('PHP, Kafka and Docker developer.', $position);   // 2 / 3
+
+        self::assertSame(67, $missesDocker->score);
+        self::assertSame(53, $missesSymfony->score);
+    }
+
+    public function test_the_summary_separates_missing_required_from_missing_nice_to_have(): void
+    {
+        $position = new Position('Backend Engineer', "Requirements: PHP, Symfony.\nNice to have: Kafka, Docker.");
+
+        $analysis = $this->analyzer->analyse('PHP developer with Docker.', $position);
+
+        self::assertStringContainsString('Matches 2 of 4 key skills for Backend Engineer: PHP, Docker.', $analysis->summary);
+        self::assertStringContainsString('Missing: Symfony.', $analysis->summary);
+        self::assertStringContainsString('Nice to have, missing: Kafka.', $analysis->summary);
+    }
 }

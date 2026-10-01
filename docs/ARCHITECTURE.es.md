@@ -397,4 +397,5 @@ Qué cambiaría de cara a producción:
 - **Un adaptador de LLM real** que implemente `CvAnalyzer` (prompts, parseo de la salida JSON, timeouts, límites de uso). Nada más cambia.
 - **Una tabla de proyección** para el listado si algún día lecturas y escrituras necesitan escalar por separado.
 - **Búsqueda insensible a tildes** (`unaccent`) y paginación keyset para tablas muy grandes.
+- **Emails internacionalizados** (con caracteres no ASCII), que hoy rechaza el value object `Email`.
 - **Un almacén de usuarios real** (tabla de usuarios o SSO) en lugar de la cuenta de reclutador de demo en memoria.

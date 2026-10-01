@@ -397,4 +397,5 @@ What would change on the way to production:
 - **A real LLM adapter** implementing `CvAnalyzer` (prompting, JSON output parsing, timeouts, rate limits) — nothing else changes.
 - **A projection table** for the list if reads and writes ever need to scale independently.
 - **Accent-insensitive search** (`unaccent`) and keyset pagination for very large tables.
+- **Internationalised emails** (non-ASCII local parts), currently rejected by the `Email` value object.
 - **A real user store** (users table or SSO) instead of the in-memory demo recruiter account.
