@@ -8,6 +8,7 @@ use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Infrastructure\Http\JobApplication\ListJobApplicationsController;
 use App\Tests\Recruitment\Factory\JobApplicationFactory;
 use App\Tests\Recruitment\Factory\JobOfferFactory;
+use App\Tests\Shared\Infrastructure\Security\RecruiterLogin;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
 use Symfony\Component\DomCrawler\Crawler;
@@ -22,7 +23,7 @@ final class BrowseJobApplicationsTest extends WebTestCase
 
     protected function setUp(): void
     {
-        $this->client = self::createClient();
+        $this->client = RecruiterLogin::as(self::createClient());
     }
 
     public function test_the_list_is_newest_first_with_status_and_ai_score(): void
