@@ -3,6 +3,8 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1">
+        {# Turbo animates page changes with the View Transitions API where supported (no-op elsewhere). #}
+        <meta name="view-transition" content="same-origin">
         <title>{% block title %}ATS{% endblock %} · ATS PoC</title>
         <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22><rect width=%2232%22 height=%2232%22 rx=%228%22 fill=%22%234f46e5%22/><text x=%2216%22 y=%2222%22 font-size=%2216%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22sans-serif%22 font-weight=%22700%22>A</text></svg>">
         {# Applies the saved theme (or the OS preference) before the first paint. #}
@@ -20,7 +22,7 @@
     </head>
     <body class="min-h-full bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100">
         {% set section = app.request.attributes.get('_route')|default('')|split('_')|first %}
-        <header class="border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
+        <header style="view-transition-name: site-header" class="border-b border-slate-200 bg-white/80 backdrop-blur dark:border-slate-800 dark:bg-slate-900/80">
             <nav class="mx-auto flex h-14 max-w-6xl items-center gap-6 px-4 sm:px-6" aria-label="Main">
                 <a href="{{ path('jobs_index') }}" class="flex shrink-0 items-center gap-2 whitespace-nowrap font-semibold">
                     <span class="grid size-7 place-items-center rounded-lg bg-indigo-600 text-sm text-white dark:bg-indigo-500" aria-hidden="true">A</span>

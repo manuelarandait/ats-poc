@@ -8,6 +8,21 @@
 @source "../../templates";
 @source "../controllers";
 
+/* Smooth page changes (Turbo + View Transitions API). The header has its own
+   transition name, so it stays put while only the content cross-fades. */
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation-duration: 180ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    ::view-transition-group(*),
+    ::view-transition-old(*),
+    ::view-transition-new(*) {
+        animation: none !important;
+    }
+}
+
 @layer base {
     html {
         color-scheme: light;
