@@ -1,0 +1,79 @@
+{#
+    Full pagination bar: range shown, page size selector, first/previous,
+    numbered pages (first, last and neighbours of the current one, "…" in
+    between), next/last and "Page X of Y".
+
+    Usage: <twig:Pagination :page="page" route="applications_index" :params="linkParams"
+                            :perPageOptions="[10, 20, 50]" formId="applications-filters" />
+
+    `params` are the query parameters every link keeps (filters, page size).
+    The page-size select belongs to the form `formId` (HTML form attribute),
+    so changing it re-submits the filters and goes back to page 1.
+#}
+{% props page, route, params = {}, perPageOptions = [], formId = null %}
+{% set firstItem = (page.page - 1) * page.perPage + 1 %}
+{% set lastItem = firstItem + page.items|length - 1 %}
+{% set link = 'inline-flex h-8 min-w-8 items-center justify-center rounded-md px-2 text-sm font-medium tabular-nums transition-colors' %}
+{% set idle = link ~ ' text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white' %}
+{% set off = link ~ ' cursor-default text-slate-300 dark:text-slate-600' %}
+
+<nav aria-label="Pagination" {{ attributes.defaults({class: 'flex flex-wrap items-center justify-between gap-x-6 gap-y-3 border-t border-slate-200 px-4 py-3 text-sm dark:border-slate-800'}) }}>
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <p class="meta tabular-nums">
+            Showing <span class="font-medium text-slate-700 dark:text-slate-200">{{ firstItem }}–{{ lastItem }}</span>
+            of <span class="font-medium text-slate-700 dark:text-slate-200">{{ page.total }}</span>
+        </p>
+        {% if perPageOptions is not empty %}
+            <label class="meta flex items-center gap-2">
+                Per page
+                <select name="perPage" {% if formId %}form="{{ formId }}"{% endif %}
+                        class="input !w-auto !py-1 !pr-8 tabular-nums"
+                        data-controller="submit-on-change" data-action="submit-on-change#submit">
+                    {% for size in perPageOptions %}
+                        <option value="{{ size }}" {{ size == page.perPage ? 'selected' }}>{{ size }}</option>
+                    {% endfor %}
+                </select>
+            </label>
+        {% endif %}
+    </div>
+
+    {% if page.pages > 1 %}
+        <div class="flex items-center gap-3">
+            <p class="meta tabular-nums">Page {{ page.page }} of {{ page.pages }}</p>
+            <div class="flex items-center gap-0.5">
+                {% if page.page > 1 %}
+                    <a href="{{ path(route, params) }}" class="{{ idle }}" aria-label="First page" title="First page">«</a>
+                    <a href="{{ path(route, params|merge(page.page > 2 ? {page: page.page - 1} : {})) }}" class="{{ idle }}" aria-label="Previous page" title="Previous page" rel="prev">‹</a>
+                {% else %}
+                    <span class="{{ off }}" aria-hidden="true">«</span>
+                    <span class="{{ off }}" aria-hidden="true">‹</span>
+                {% endif %}
+
+                <span class="hidden items-center gap-0.5 sm:flex">
+                    {% set gap = false %}
+                    {% for n in 1..page.pages %}
+                        {% if n == 1 or n == page.pages or (n >= page.page - 1 and n <= page.page + 1) %}
+                            {% set gap = false %}
+                            {% if n == page.page %}
+                                <span class="{{ link }} bg-indigo-600 text-white dark:bg-indigo-500" aria-current="page">{{ n }}</span>
+                            {% else %}
+                                <a href="{{ path(route, params|merge(n > 1 ? {page: n} : {})) }}" class="{{ idle }}" aria-label="Page {{ n }}">{{ n }}</a>
+                            {% endif %}
+                        {% elseif not gap %}
+                            {% set gap = true %}
+                            <span class="{{ off }}" aria-hidden="true">…</span>
+                        {% endif %}
+                    {% endfor %}
+                </span>
+
+                {% if page.hasNextPage %}
+                    <a href="{{ path(route, params|merge({page: page.page + 1})) }}" class="{{ idle }}" aria-label="Next page" title="Next page" rel="next">›</a>
+                    <a href="{{ path(route, params|merge({page: page.pages})) }}" class="{{ idle }}" aria-label="Last page" title="Last page">»</a>
+                {% else %}
+                    <span class="{{ off }}" aria-hidden="true">›</span>
+                    <span class="{{ off }}" aria-hidden="true">»</span>
+                {% endif %}
+            </div>
+        </div>
+    {% endif %}
+</nav>

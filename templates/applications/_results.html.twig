@@ -1,5 +1,4 @@
 {% set hasFilters = filters.q or filters.status or filters.position %}
-{% set pageParams = filters|filter(v => v) %}
 
 {# advance: the URL follows the filters, so results are shareable and Back works. #}
 <turbo-frame id="{{ frame }}" data-turbo-action="advance" class="block transition-opacity aria-busy:opacity-60">
@@ -45,24 +44,13 @@
                 </table>
             </div>
 
-            <nav class="flex items-center justify-between gap-4 border-t border-slate-200 px-4 py-3 text-sm dark:border-slate-800" aria-label="Pagination">
-                <p class="meta tabular-nums">
-                    Showing {{ (page.page - 1) * page.perPage + 1 }}–{{ (page.page - 1) * page.perPage + page.items|length }} of {{ page.total }}
-                </p>
-                <div class="flex gap-2">
-                    {% if page.page > 1 %}
-                        <a href="{{ path('applications_index', pageParams|merge({page: page.page - 1})) }}" class="btn btn-secondary !py-1.5">Previous</a>
-                    {% endif %}
-                    {% if page.hasNextPage %}
-                        <a href="{{ path('applications_index', pageParams|merge({page: page.page + 1})) }}" class="btn btn-secondary !py-1.5">Next</a>
-                    {% endif %}
-                </div>
-            </nav>
+            <twig:Pagination :page="page" route="applications_index" :params="linkParams"
+                             :perPageOptions="perPageOptions" formId="applications-filters" />
         {% endif %}
     </div>
 
     {# Keep refreshing while any visible application is still being analysed. #}
     {% if page.items|filter(i => i.screeningStatus == 'pending')|length %}
-        <div hidden data-controller="poll" data-poll-url-value="{{ path('applications_index', pageParams|merge({page: page.page})) }}"></div>
+        <div hidden data-controller="poll" data-poll-url-value="{{ path('applications_index', linkParams|merge({page: page.page})) }}"></div>
     {% endif %}
 </turbo-frame>
