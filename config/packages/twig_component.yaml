@@ -1,0 +1,8 @@
+twig_component:
+    # Anonymous components: a template in templates/components/ is usable as
+    # <twig:Name …/> (no PHP class needed for purely presentational pieces).
+    anonymous_template_directory: 'components/'
+    # Where class-based components would live if one ever needs PHP logic
+    # (presentation is an infrastructure concern). None exist for now.
+    defaults:
+        App\Shared\Infrastructure\Twig\Component\: 'components/'

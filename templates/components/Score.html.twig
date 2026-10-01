@@ -1,0 +1,16 @@
+{#
+    AI relevance score, coloured by band (number always shown, never colour alone).
+    Without a score yet, shows the screening state instead.
+    Usage: <twig:Score :score="item.aiScore" :screeningStatus="item.screeningStatus" />
+#}
+{% props score = null, screeningStatus = 'completed' %}
+{% if score is not null %}
+    {% set tone = score >= 70
+        ? 'bg-emerald-50 text-emerald-700 ring-emerald-200 dark:bg-emerald-500/15 dark:text-emerald-300 dark:ring-emerald-500/30'
+        : (score >= 40
+            ? 'bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30'
+            : 'bg-rose-50 text-rose-700 ring-rose-200 dark:bg-rose-500/15 dark:text-rose-300 dark:ring-rose-500/30') %}
+    <span {{ attributes.defaults({class: 'badge tabular-nums ' ~ tone, title: 'AI relevance score'}) }}>{{ score }}<span class="sr-only"> out of 100</span></span>
+{% else %}
+    <twig:ScreeningBadge :status="screeningStatus" />
+{% endif %}

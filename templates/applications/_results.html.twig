@@ -1,4 +1,3 @@
-{% import 'components/ui.html.twig' as ui %}
 {% set hasFilters = filters.q or filters.status or filters.position %}
 {% set pageParams = filters|filter(v => v) %}
 
@@ -7,9 +6,9 @@
     <div class="card overflow-hidden">
         {% if page.items is empty %}
             {% if hasFilters %}
-                {{ ui.empty_state('No applications match these filters', 'Try another search or clear the filters.', path('applications_index'), 'Clear filters') }}
+                <twig:EmptyState title="No applications match these filters" text="Try another search or clear the filters." :actionUrl="path('applications_index')" actionLabel="Clear filters" />
             {% else %}
-                {{ ui.empty_state('No applications yet', 'Share an open position to receive the first one.', path('jobs_index'), 'See open positions') }}
+                <twig:EmptyState title="No applications yet" text="Share an open position to receive the first one." :actionUrl="path('jobs_index')" actionLabel="See open positions" />
             {% endif %}
         {% else %}
             <div class="overflow-x-auto">
@@ -34,12 +33,12 @@
                                 </td>
                                 <td class="hidden px-4 py-3 text-slate-600 md:table-cell dark:text-slate-300">{{ item.positionTitle }}</td>
                                 <td class="px-4 py-3">
-                                    {{ ui.status_badge(item.status) }}
+                                    <twig:StatusBadge :status="item.status" />
                                     {# On small screens the score sits under the status instead of its own column. #}
-                                    <div class="mt-1.5 sm:hidden">{{ ui.score(item.aiScore, item.screeningStatus) }}</div>
+                                    <div class="mt-1.5 sm:hidden"><twig:Score :score="item.aiScore" :screeningStatus="item.screeningStatus" /></div>
                                 </td>
-                                <td class="hidden px-4 py-3 text-right sm:table-cell">{{ ui.score(item.aiScore, item.screeningStatus) }}</td>
-                                <td class="meta hidden px-4 py-3 text-right tabular-nums sm:table-cell">{{ ui.time(item.appliedAt) }}</td>
+                                <td class="hidden px-4 py-3 text-right sm:table-cell"><twig:Score :score="item.aiScore" :screeningStatus="item.screeningStatus" /></td>
+                                <td class="meta hidden px-4 py-3 text-right tabular-nums sm:table-cell"><twig:Time :date="item.appliedAt" /></td>
                             </tr>
                         {% endfor %}
                     </tbody>

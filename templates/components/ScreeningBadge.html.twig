@@ -1,0 +1,10 @@
+{# AI screening state; renders nothing once completed. Usage: <twig:ScreeningBadge :status="application.screeningStatus" /> #}
+{% props status %}
+{% if status == 'pending' %}
+    <span {{ attributes.defaults({class: 'badge bg-indigo-50 text-indigo-700 ring-indigo-200 dark:bg-indigo-500/15 dark:text-indigo-300 dark:ring-indigo-500/30'}) }}>
+        <span class="size-1.5 rounded-full bg-current motion-safe:animate-pulse" aria-hidden="true"></span>
+        Analysing…
+    </span>
+{% elseif status == 'failed' %}
+    <span {{ attributes.defaults({class: 'badge bg-amber-50 text-amber-800 ring-amber-200 dark:bg-amber-500/15 dark:text-amber-300 dark:ring-amber-500/30'}) }}>AI unavailable</span>
+{% endif %}
