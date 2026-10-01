@@ -44,6 +44,8 @@ La regla que lo sostiene todo: **las dependencias solo apuntan hacia dentro**. E
 
 Cuatro contenedores y un único código. La app web y el worker usan **la misma imagen**: la app responde peticiones HTTP y el worker consume mensajes de RabbitMQ. Todo lo lento (el enriquecimiento con IA) ocurre en el worker, nunca dentro de una petición.
 
+Dos públicos: los **candidatos** usan las páginas públicas (ofertas y envío) sin cuenta; los **reclutadores** inician sesión para ver y gestionar las candidaturas. La autenticación se resuelve entera en el borde (Symfony Security): el dominio y los casos de uso no saben nada de usuarios.
+
 ```mermaid
 flowchart LR
     user([Candidato / Reclutador])
@@ -95,7 +97,7 @@ src/
 │       └── Messenger/                  listener de "reintentos agotados"
 └── Shared/                             lo mínimo común a todos
     ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, puertos de los buses
-    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL
+    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, login
 ```
 
 ### Domain: el núcleo
@@ -382,6 +384,7 @@ Cada criterio de aceptación del enunciado (envío, enriquecimiento, listado de 
 | Las reglas de negocio se comportan como se especifica | Tests unitarios (sin kernel ni BD) |
 | Los adaptadores funcionan con PostgreSQL / Messenger reales | Tests de integración |
 | Los contextos siguen entendiendo los eventos del otro | Tests de contrato |
+| El área de reclutador exige iniciar sesión; las páginas del candidato siguen públicas | Tests funcionales |
 | Todo lo anterior en cada pull request | GitHub Actions (`make qa`, `make test` dentro de Docker) |
 
 ## Trade-offs y próximos pasos
@@ -394,4 +397,4 @@ Qué cambiaría de cara a producción:
 - **Un adaptador de LLM real** que implemente `CvAnalyzer` (prompts, parseo de la salida JSON, timeouts, límites de uso). Nada más cambia.
 - **Una tabla de proyección** para el listado si algún día lecturas y escrituras necesitan escalar por separado.
 - **Búsqueda insensible a tildes** (`unaccent`) y paginación keyset para tablas muy grandes.
-- **Autenticación** para las páginas de reclutadores (fuera del alcance del ejercicio).
+- **Un almacén de usuarios real** (tabla de usuarios o SSO) en lugar de la cuenta de reclutador de demo en memoria.

@@ -44,6 +44,8 @@ The rule that holds everything together: **dependencies only point inwards**. Th
 
 Four containers, one codebase. The web app and the worker run the **same image**: the app answers HTTP requests, the worker consumes RabbitMQ messages. Anything slow (the AI enrichment) happens in the worker, never inside a request.
 
+Two audiences: **candidates** use the public pages (job offers, apply) without an account; **recruiters** sign in to see and manage applications. Authentication is handled entirely at the edge (Symfony Security); the domain and the use cases know nothing about users.
+
 ```mermaid
 flowchart LR
     user([Candidate / Recruiter])
@@ -95,7 +97,7 @@ src/
 │       └── Messenger/                  "retries exhausted" listener
 └── Shared/                             the minimum common to all
     ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, bus ports
-    └── Infrastructure/                 Messenger bus adapters, JSON event serializer, DBAL helpers
+    └── Infrastructure/                 Messenger bus adapters, JSON event serializer, DBAL helpers, login
 ```
 
 ### Domain — the core
@@ -382,6 +384,7 @@ Every acceptance criterion of the brief (submission, enrichment, newest-first li
 | Business rules behave as specified | Unit tests (no kernel, no DB) |
 | Adapters work with real PostgreSQL / Messenger | Integration tests |
 | Contexts still understand each other's events | Contract tests |
+| Recruiter area requires signing in; candidate pages stay public | Functional tests |
 | All of the above on every pull request | GitHub Actions (`make qa`, `make test` inside Docker) |
 
 ## Trade-offs and next steps
@@ -394,4 +397,4 @@ What would change on the way to production:
 - **A real LLM adapter** implementing `CvAnalyzer` (prompting, JSON output parsing, timeouts, rate limits) — nothing else changes.
 - **A projection table** for the list if reads and writes ever need to scale independently.
 - **Accent-insensitive search** (`unaccent`) and keyset pagination for very large tables.
-- **Authentication** for the recruiter pages (out of scope for the exercise).
+- **A real user store** (users table or SSO) instead of the in-memory demo recruiter account.
