@@ -107,4 +107,50 @@ final class BrowseJobApplicationsTest extends WebTestCase
     {
         return $crawler->filter('tbody tr td:first-child a')->each(static fn (Crawler $link): string => trim($link->text()));
     }
+
+    public function test_the_page_size_can_be_chosen_and_page_links_keep_it_and_the_filters(): void
+    {
+        JobApplicationFactory::createMany(12);
+
+        $crawler = $this->client->request('GET', '/applications?status=received&perPage=10');
+
+        self::assertCount(10, $crawler->filter('tbody tr'));
+        self::assertSelectorTextContains('nav[aria-label="Pagination"]', 'Showing 1–10 of 12');
+        self::assertSelectorTextContains('nav[aria-label="Pagination"]', 'Page 1 of 2');
+        self::assertSame('10', $crawler->filter('select[name="perPage"] option[selected]')->attr('value'));
+        // The size select belongs to the filters form, so changing it keeps the filters.
+        self::assertSame('applications-filters', $crawler->filter('select[name="perPage"]')->attr('form'));
+        self::assertSame('/applications?status=received&perPage=10&page=2', $crawler->filter('a[aria-label="Next page"]')->attr('href'));
+    }
+
+    public function test_an_unsupported_page_size_falls_back_to_the_default(): void
+    {
+        JobApplicationFactory::createOne();
+
+        $crawler = $this->client->request('GET', '/applications?perPage=7');
+
+        self::assertSame('20', $crawler->filter('select[name="perPage"] option[selected]')->attr('value'));
+    }
+
+    public function test_long_page_lists_show_first_last_and_neighbours_with_ellipses(): void
+    {
+        JobApplicationFactory::createMany(60);
+
+        $crawler = $this->client->request('GET', '/applications?perPage=10&page=4');
+
+        $pages = $crawler->filter('nav[aria-label="Pagination"] span.sm\\:flex > *')->each(static fn (Crawler $item): string => trim($item->text()));
+        self::assertSame(['1', '…', '3', '4', '5', '6'], $pages);
+        self::assertSelectorTextContains('nav[aria-label="Pagination"] [aria-current="page"]', '4');
+        self::assertSelectorTextContains('nav[aria-label="Pagination"]', 'Page 4 of 6');
+    }
+
+    public function test_a_page_past_the_end_shows_the_last_page(): void
+    {
+        JobApplicationFactory::createMany(12);
+
+        $crawler = $this->client->request('GET', '/applications?perPage=10&page=9');
+
+        self::assertCount(2, $crawler->filter('tbody tr'));
+        self::assertSelectorTextContains('nav[aria-label="Pagination"]', 'Page 2 of 2');
+    }
 }

@@ -20,15 +20,61 @@ use App\Recruitment\Domain\JobOffer\JobOfferId;
 use Doctrine\Bundle\FixturesBundle\Fixture;
 use Doctrine\Common\DataFixtures\DependentFixtureInterface;
 use Doctrine\Persistence\ObjectManager;
+use Faker\Factory;
 use Psr\Clock\ClockInterface;
 
 /**
- * Demo applications in varied states so the list, filters and detail page
- * have something to show. Built only through domain behaviour (submit,
- * changeStatus, completeScreening…), so no impossible state can be seeded.
+ * Demo applications in varied states so the list, filters, pagination and
+ * detail page have something to show: eight hand-written ones plus a batch
+ * generated with a fixed Faker seed (same data on every load). All are built
+ * only through domain behaviour (submit, changeStatus, completeScreening…),
+ * so no impossible state can be seeded.
  */
 final class JobApplicationFixtures extends Fixture implements DependentFixtureInterface
 {
+    private const int GENERATED = 24;
+    private const int SEED = 20261001;
+
+    /**
+     * What a candidate for each offer may list. The pre-computed AI score
+     * mirrors the mock LLM: skill coverage (80 %) + seniority (20 %).
+     */
+    private const array PROFILES = [
+        JobOfferFixtures::SENIOR_PHP => [
+            'roles' => ['Backend engineer', 'PHP developer', 'Software engineer'],
+            'skills' => ['PHP', 'Symfony', 'Doctrine', 'DDD', 'hexagonal architecture', 'RabbitMQ', 'PostgreSQL', 'Docker', 'PHPUnit', 'CQRS', 'API Platform', 'CI/CD'],
+        ],
+        JobOfferFixtures::FRONTEND => [
+            'roles' => ['Frontend engineer', 'UI developer', 'Web developer'],
+            'skills' => ['React', 'TypeScript', 'Tailwind', 'CSS', 'Jest', 'Testing Library', 'Playwright', 'Next.js', 'Storybook', 'accessibility (WCAG)'],
+        ],
+        JobOfferFixtures::DATA_ENGINEER => [
+            'roles' => ['Data engineer', 'Analytics engineer', 'Python developer'],
+            'skills' => ['Python', 'Airflow', 'dbt', 'SQL', 'AWS', 'Spark', 'Kafka', 'Snowflake', 'data modelling'],
+        ],
+    ];
+
+    private const array HIGHLIGHTS = [
+        'Grew a team from 3 to 8 engineers.',
+        'Worked at a fintech scale-up.',
+        'Open-source contributor.',
+        'Remote-first for the last four years.',
+        'Mentor at a coding bootcamp.',
+        'Led a legacy migration end to end.',
+        'Speaker at local meetups.',
+    ];
+
+    private const array NOTES = ['Available immediately.', 'Two weeks notice.', 'Open to relocation.', 'Prefers hybrid work.'];
+
+    /** Hiring pipelines a generated application may have gone through (duplicates = more likely). */
+    private const array PIPELINES = [
+        [], [], [], [],
+        [Status::InReview], [Status::InReview], [Status::InReview],
+        [Status::InReview, Status::Interviewing], [Status::InReview, Status::Interviewing],
+        [Status::Rejected], [Status::Rejected],
+        [Status::InReview, Status::Interviewing, Status::Hired],
+    ];
+
     public function __construct(private readonly ClockInterface $clock)
     {
     }
@@ -40,7 +86,7 @@ final class JobApplicationFixtures extends Fixture implements DependentFixtureIn
 
     public function load(ObjectManager $manager): void
     {
-        foreach ($this->applications() as $i => $data) {
+        foreach ([...$this->applications(), ...$this->generatedApplications()] as $i => $data) {
             $appliedAt = $this->clock->now()->modify(\sprintf('-%d minutes', $data['minutesAgo']));
             $screenedAt = $appliedAt->modify('+1 minute');
 
@@ -80,6 +126,49 @@ final class JobApplicationFixtures extends Fixture implements DependentFixtureIn
     {
         return $manager->find(JobOffer::class, JobOfferId::fromString($id))
             ?? throw new \LogicException(\sprintf('Job offer fixture "%s" not loaded.', $id));
+    }
+
+    /**
+     * @return list<array{name: string, email: string, phone: ?string, offer: string, minutesAgo: int, notes: ?string, cv: string, screening: array{int, string}|null, pipeline: list<Status>}>
+     */
+    private function generatedApplications(): array
+    {
+        $faker = Factory::create('en_US');
+        $faker->seed(self::SEED);
+        $offers = array_keys(self::PROFILES);
+        $applications = [];
+
+        for ($i = 0; $i < self::GENERATED; ++$i) {
+            $offer = $offers[$i % \count($offers)];
+            ['roles' => $roles, 'skills' => $pool] = self::PROFILES[$offer];
+
+            $role = $roles[$faker->numberBetween(0, \count($roles) - 1)];
+            $years = $faker->numberBetween(1, 12);
+            $skills = array_values(array_filter($pool, static fn (): bool => $faker->boolean(55))) ?: [$pool[0]];
+            $score = (int) round(80 * \count($skills) / \count($pool) + 20 * min($years, 8) / 8);
+
+            // Plain first + last name (Faker's name() adds "Mrs.", "Jr.", "DDS"…) and an email derived from it.
+            [$firstName, $lastName] = [$faker->firstName(), $faker->lastName()];
+            $emailName = strtolower((string) preg_replace('/[^a-z]+/i', '', $firstName).'.'.(string) preg_replace('/[^a-z]+/i', '', $lastName));
+
+            $applications[] = [
+                'name' => $firstName.' '.$lastName,
+                'email' => \sprintf('%s.%d@example.com', $emailName, $i + 1),
+                'phone' => $faker->boolean(60) ? $faker->e164PhoneNumber() : null,
+                'offer' => $offer,
+                'minutesAgo' => $faker->numberBetween(60 * 24, 60 * 24 * 30), // 1–30 days ago
+                'notes' => $faker->boolean(25) ? self::NOTES[$faker->numberBetween(0, \count(self::NOTES) - 1)] : null,
+                'cv' => \sprintf("%s, %d years of experience.\nSkills: %s.\n%s", $role, $years, implode(', ', $skills), self::HIGHLIGHTS[$faker->numberBetween(0, \count(self::HIGHLIGHTS) - 1)]),
+                // One in twelve: the AI analysis failed after its retries.
+                'screening' => 5 === $i % 12 ? null : [
+                    $score,
+                    \sprintf('%s with %d years of experience. Matches %d of %d key skills: %s.', $role, $years, \count($skills), \count($pool), implode(', ', $skills)),
+                ],
+                'pipeline' => self::PIPELINES[$faker->numberBetween(0, \count(self::PIPELINES) - 1)],
+            ];
+        }
+
+        return $applications;
     }
 
     /**

@@ -11,7 +11,7 @@
     </div>
 
     {# GET form: works without JS; with JS it submits on change into the results frame. #}
-    <form action="{{ path('applications_index') }}" method="get" role="search"
+    <form id="applications-filters" action="{{ path('applications_index') }}" method="get" role="search"
           data-controller="autosubmit" data-turbo-frame="{{ frame }}"
           class="card mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto]">
         <div>
