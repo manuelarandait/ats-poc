@@ -1,0 +1,26 @@
+{#
+    Sortable column header: a link that sorts by this column (or flips the
+    direction if it already is the sorted one), keeping the filters and going
+    back to page 1. aria-sort tells screen readers which column is sorted.
+
+    Usage: <twig:SortHeader column="score" label="AI score" :page="page"
+                            route="applications_index" :params="linkParams" align="right" />
+#}
+{% props column, label, page, route, params = {}, align = 'left' %}
+{% set active = page.sort.value == column %}
+{% set direction = page.nextDirection(column).value %}
+{% set target = params|filter((value, key) => key not in ['sort', 'dir'])
+    |merge(page.isDefaultSortFor(column, direction) ? {} : {sort: column, dir: direction}) %}
+<th scope="col" {% if active %}aria-sort="{{ page.direction.value == 'asc' ? 'ascending' : 'descending' }}"{% endif %}
+    {{ attributes.defaults({class: 'px-4 py-3' ~ (align == 'right' ? ' text-right' : '')}) }}>
+    <a href="{{ path(route, target) }}"
+       class="group inline-flex items-center gap-1 rounded uppercase focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 {{ active ? 'text-slate-900 dark:text-white' : 'hover:text-slate-800 dark:hover:text-slate-200' }}">
+        {{ label }}
+        {% if active %}
+            <twig:Icon :name="page.direction.value == 'asc' ? 'arrow-up' : 'arrow-down'" class="size-3.5 text-indigo-600 dark:text-indigo-400" />
+        {% else %}
+            <twig:Icon name="arrows-up-down" class="size-3.5 opacity-0 transition-opacity group-hover:opacity-60 group-focus-visible:opacity-60" />
+        {% endif %}
+        <span class="sr-only">, sort {{ direction == 'asc' ? 'ascending' : 'descending' }}</span>
+    </a>
+</th>

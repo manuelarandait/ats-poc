@@ -9,6 +9,8 @@ use App\Recruitment\Domain\JobOffer\JobOfferId;
 
 /**
  * Validated, normalised filters: raw query-string values become typed or null.
+ * An unknown sort or direction falls back to the default (newest first), like
+ * an unsupported page size: it's presentation, not a wrong filter.
  */
 final readonly class JobApplicationSearchCriteria
 {
@@ -21,12 +23,15 @@ final readonly class JobApplicationSearchCriteria
         public ?string $search,
         public int $page,
         public int $perPage,
+        public JobApplicationSort $sort,
+        public SortDirection $direction,
     ) {
     }
 
     public static function fromQuery(SearchJobApplicationsQuery $query): self
     {
         $search = trim($query->search ?? '');
+        $sort = JobApplicationSort::tryFrom(trim($query->sort ?? '')) ?? JobApplicationSort::default();
 
         return new self(
             self::isBlank($query->status) ? null : JobApplicationStatus::fromValue((string) $query->status),
@@ -34,6 +39,8 @@ final readonly class JobApplicationSearchCriteria
             '' === $search ? null : $search,
             max(1, $query->page),
             min(max(1, $query->perPage), self::MAX_PER_PAGE),
+            $sort,
+            SortDirection::tryFrom(trim($query->direction ?? '')) ?? $sort->defaultDirection(),
         );
     }
 

@@ -9,8 +9,10 @@ use App\Recruitment\Application\FindJobApplicationStats\JobApplicationStats;
 use App\Recruitment\Application\JobApplicationReadModel;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationPage;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationSearchCriteria;
+use App\Recruitment\Application\SearchJobApplications\JobApplicationSort;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationSummary;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
+use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobOffer\JobOfferId;
 use App\Shared\Infrastructure\Persistence\Dbal\Row;
 use Doctrine\DBAL\Connection;
@@ -48,8 +50,10 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
                 'a.ai_score',
                 'a.applied_at',
             )
-            ->orderBy('a.applied_at', 'DESC')
-            ->addOrderBy('a.id', 'DESC') // UUID v7 is time-ordered: stable tie-break
+            ->orderBy($this->sortExpression($criteria->sort), $criteria->direction->value.(JobApplicationSort::Score === $criteria->sort ? ' NULLS LAST' : ''))
+            // Ties (same name, same status…) newest first; UUID v7 is time-ordered: stable final tie-break.
+            ->addOrderBy('a.applied_at', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
             ->setFirstResult($criteria->offset())
             ->setMaxResults($criteria->perPage)
             ->fetchAllAssociative();
@@ -73,6 +77,8 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
             $total,
             $criteria->page,
             $criteria->perPage,
+            $criteria->sort,
+            $criteria->direction,
         );
     }
 
@@ -140,6 +146,25 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
         }
 
         return new JobApplicationStats($byStatus, $byJobOffer, $analysing, 0 === $scored ? null : (int) round($scoreSum / $scored));
+    }
+
+    /**
+     * Mapped from a closed enum: no user input ever reaches the ORDER BY.
+     */
+    private function sortExpression(JobApplicationSort $sort): string
+    {
+        return match ($sort) {
+            JobApplicationSort::Candidate => 'a.candidate_full_name',
+            JobApplicationSort::Position => 'o.title',
+            // Pipeline order (received → … → hired, then rejected), not alphabetical.
+            JobApplicationSort::Status => \sprintf('CASE a.status %s END', implode(' ', array_map(
+                static fn (JobApplicationStatus $status, int $position): string => \sprintf("WHEN '%s' THEN %d", $status->value, $position),
+                JobApplicationStatus::cases(),
+                array_keys(JobApplicationStatus::cases()),
+            ))),
+            JobApplicationSort::Score => 'a.ai_score',
+            JobApplicationSort::AppliedAt => 'a.applied_at',
+        };
     }
 
     private function filtered(?JobOfferId $jobOfferId, ?string $search): QueryBuilder

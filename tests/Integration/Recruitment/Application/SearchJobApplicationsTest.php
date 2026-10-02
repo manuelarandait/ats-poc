@@ -121,6 +121,49 @@ final class SearchJobApplicationsTest extends KernelTestCase
         self::assertSame('pending', $pending->screeningStatus);
     }
 
+    public function test_it_sorts_by_candidate_and_by_position_alphabetically(): void
+    {
+        $zeta = JobOfferFactory::createOne(['title' => 'Zeta role']);
+        $alpha = JobOfferFactory::createOne(['title' => 'Alpha role']);
+        JobApplicationFactory::new()->forOffer($zeta)->candidate('Bruno', 'b@example.com')->create();
+        JobApplicationFactory::new()->forOffer($alpha)->candidate('Carla', 'c@example.com')->create();
+        JobApplicationFactory::new()->forOffer($zeta)->candidate('Ana', 'a@example.com')->create();
+
+        self::assertSame(['Ana', 'Bruno', 'Carla'], $this->names($this->search(sort: 'candidate', direction: 'asc')));
+        self::assertSame(['Carla', 'Bruno', 'Ana'], $this->names($this->search(sort: 'candidate', direction: 'desc')));
+        self::assertSame('Carla', $this->names($this->search(sort: 'position', direction: 'asc'))[0]);
+    }
+
+    public function test_the_status_sorts_in_pipeline_order_not_alphabetically(): void
+    {
+        JobApplicationFactory::new()->candidate('Rejected', 'r@example.com')->inStatus(JobApplicationStatus::Rejected)->create();
+        JobApplicationFactory::new()->candidate('Hired', 'h@example.com')->inStatus(JobApplicationStatus::Hired)->create();
+        JobApplicationFactory::new()->candidate('Received', 'a@example.com')->create();
+        JobApplicationFactory::new()->candidate('In review', 'i@example.com')->inStatus(JobApplicationStatus::InReview)->create();
+
+        self::assertSame(['Received', 'In review', 'Hired', 'Rejected'], $this->names($this->search(sort: 'status', direction: 'asc')));
+        self::assertSame(['Rejected', 'Hired', 'In review', 'Received'], $this->names($this->search(sort: 'status', direction: 'desc')));
+    }
+
+    public function test_applications_without_a_score_yet_go_last_in_both_directions(): void
+    {
+        JobApplicationFactory::new()->candidate('Fifty', 'f@example.com')->screened(50)->create();
+        JobApplicationFactory::new()->candidate('Pending', 'p@example.com')->create();
+        JobApplicationFactory::new()->candidate('Ninety', 'n@example.com')->screened(90)->create();
+
+        self::assertSame(['Ninety', 'Fifty', 'Pending'], $this->names($this->search(sort: 'score', direction: 'desc')));
+        self::assertSame(['Fifty', 'Ninety', 'Pending'], $this->names($this->search(sort: 'score', direction: 'asc')));
+    }
+
+    public function test_ties_are_broken_newest_first_and_an_unknown_sort_falls_back_to_newest_first(): void
+    {
+        JobApplicationFactory::new()->candidate('Older', 'o@example.com')->appliedAt('-2 days')->create();
+        JobApplicationFactory::new()->candidate('Newer', 'n@example.com')->appliedAt('-1 day')->create();
+
+        self::assertSame(['Newer', 'Older'], $this->names($this->search(sort: 'status', direction: 'asc')), 'Same status: newest first.');
+        self::assertSame(['Newer', 'Older'], $this->names($this->search(sort: 'salary', direction: 'sideways')));
+    }
+
     public function test_an_unknown_status_filter_is_rejected(): void
     {
         $this->expectException(UnknownJobApplicationStatus::class);
@@ -128,9 +171,9 @@ final class SearchJobApplicationsTest extends KernelTestCase
         $this->search(status: 'on_hold');
     }
 
-    private function search(?string $status = null, ?string $jobOfferId = null, ?string $search = null, int $page = 1, int $perPage = 20): JobApplicationPage
+    private function search(?string $status = null, ?string $jobOfferId = null, ?string $search = null, int $page = 1, int $perPage = 20, ?string $sort = null, ?string $direction = null): JobApplicationPage
     {
-        return self::getContainer()->get(QueryBus::class)->ask(new SearchJobApplicationsQuery($status, $jobOfferId, $search, $page, $perPage));
+        return self::getContainer()->get(QueryBus::class)->ask(new SearchJobApplicationsQuery($status, $jobOfferId, $search, $page, $perPage, $sort, $direction));
     }
 
     /**

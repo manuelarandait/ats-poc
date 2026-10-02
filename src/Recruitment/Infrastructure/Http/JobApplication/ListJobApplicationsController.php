@@ -40,15 +40,16 @@ final readonly class ListJobApplicationsController
             'status' => $request->query->getString('status'),
             'position' => $request->query->getString('position'),
         ];
+        $sort = ['sort' => $request->query->getString('sort'), 'dir' => $request->query->getString('dir')];
         $perPage = $request->query->getInt('perPage', self::DEFAULT_PER_PAGE);
         $perPage = \in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : self::DEFAULT_PER_PAGE;
 
         try {
-            $page = $this->search($filters, $request->query->getInt('page', 1), $perPage);
+            $page = $this->search($filters, $sort, $request->query->getInt('page', 1), $perPage);
 
             // A page past the end (e.g. after narrowing the filters) shows the last one instead of nothing.
             if ([] === $page->items && $page->page > $page->pages()) {
-                $page = $this->search($filters, $page->pages(), $perPage);
+                $page = $this->search($filters, $sort, $page->pages(), $perPage);
             }
         } catch (UnknownJobApplicationStatus|InvalidUuid $invalidFilter) {
             throw new BadRequestHttpException($invalidFilter->getMessage(), $invalidFilter);
@@ -60,8 +61,10 @@ final readonly class ListJobApplicationsController
             'filters' => $filters,
             'frame' => self::RESULTS_FRAME,
             'perPageOptions' => self::PER_PAGE_OPTIONS,
-            // Query parameters that every page link must keep (empty ones and the default page size are dropped).
-            'linkParams' => array_filter($filters) + (self::DEFAULT_PER_PAGE === $perPage ? [] : ['perPage' => $perPage]),
+            // Query parameters that every page link must keep (empty ones, the default sort and page size are dropped).
+            'linkParams' => array_filter($filters)
+                + ($page->isDefaultSort() ? [] : ['sort' => $page->sort->value, 'dir' => $page->direction->value])
+                + (self::DEFAULT_PER_PAGE === $perPage ? [] : ['perPage' => $perPage]),
         ];
 
         // A frame request (live filtering, pagination, polling) only needs the results.
@@ -76,8 +79,9 @@ final readonly class ListJobApplicationsController
 
     /**
      * @param array{q: string, status: string, position: string} $filters
+     * @param array{sort: string, dir: string}                   $sort
      */
-    private function search(array $filters, int $page, int $perPage): JobApplicationPage
+    private function search(array $filters, array $sort, int $page, int $perPage): JobApplicationPage
     {
         return $this->queries->ask(new SearchJobApplicationsQuery(
             status: $filters['status'],
@@ -85,6 +89,8 @@ final readonly class ListJobApplicationsController
             search: $filters['q'],
             page: $page,
             perPage: $perPage,
+            sort: $sort['sort'],
+            direction: $sort['dir'],
         ));
     }
 }

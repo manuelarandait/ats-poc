@@ -133,6 +133,36 @@ final class BrowseJobApplicationsTest extends WebTestCase
         ], $kpis);
     }
 
+    public function test_column_headers_sort_the_list_and_keep_the_filters(): void
+    {
+        JobApplicationFactory::new()->screened(40)->many(11)->create();
+        JobApplicationFactory::new()->candidate('Top Candidate', 'top@example.com')->screened(95)->create();
+
+        $crawler = $this->client->request('GET', '/applications?status=received&sort=score&dir=desc&perPage=10');
+
+        self::assertSame('Top Candidate', $this->names($crawler)[0]);
+        self::assertSame('descending', $crawler->filter('th:contains("AI score")')->attr('aria-sort'));
+        self::assertCount(1, $crawler->filter('th[aria-sort]'), 'Only the sorted column is announced as sorted.');
+        // Clicking the sorted column flips it; another column starts in its natural direction; back to newest first drops the sort from the URL.
+        self::assertSame('/applications?status=received&perPage=10&sort=score&dir=asc', $crawler->filter('th:contains("AI score") a')->attr('href'));
+        self::assertSame('/applications?status=received&perPage=10&sort=candidate&dir=asc', $crawler->filter('th:contains("Candidate") a')->attr('href'));
+        self::assertSame('/applications?status=received&perPage=10', $crawler->filter('th:contains("Applied") a')->attr('href'));
+        // Paging keeps the order, and the filters form carries it so typing keeps it too.
+        self::assertSame('/applications?status=received&sort=score&dir=desc&perPage=10&page=2', $crawler->filter('a[aria-label="Next page"]')->attr('href'));
+        self::assertSame('score', $crawler->filter('input[type="hidden"][name="sort"][form="applications-filters"]')->attr('value'));
+    }
+
+    public function test_the_applied_column_shows_the_date_and_how_long_ago(): void
+    {
+        JobApplicationFactory::new()->appliedAt('2026-09-01 10:00:00')->create();
+
+        $crawler = $this->client->request('GET', '/applications');
+
+        self::assertStringContainsString('Sep 1, 2026 · 10:00', $crawler->filter('tbody tr td')->last()->text());
+        self::assertStringContainsString('ago', $crawler->filter('tbody tr td')->last()->text());
+        self::assertSame('descending', $crawler->filter('th:contains("Applied")')->attr('aria-sort'), 'Newest first is the default order.');
+    }
+
     public function test_an_invalid_filter_is_a_bad_request(): void
     {
         $this->client->request('GET', '/applications?status=on_hold');

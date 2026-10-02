@@ -19,6 +19,8 @@ final readonly class SearchJobApplicationsQuery implements Query
         public ?string $search = null,
         public int $page = 1,
         public int $perPage = JobApplicationSearchCriteria::DEFAULT_PER_PAGE,
+        public ?string $sort = null,
+        public ?string $direction = null,
     ) {
     }
 }
