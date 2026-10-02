@@ -163,6 +163,19 @@ final class BrowseJobApplicationsTest extends WebTestCase
         self::assertSame('descending', $crawler->filter('th:contains("Applied")')->attr('aria-sort'), 'Newest first is the default order.');
     }
 
+    public function test_a_candidate_with_several_applications_links_to_all_of_them(): void
+    {
+        JobApplicationFactory::new()->candidate('Jane Doe', 'jane@example.com')->many(3)->create();
+        JobApplicationFactory::new()->candidate('John Smith', 'john@example.com')->create();
+
+        $crawler = $this->client->request('GET', '/applications');
+
+        $links = $crawler->filter('a[title="Show every application from this email"]');
+        self::assertCount(3, $links, 'One per row of Jane, none for John.');
+        self::assertSame('3 applications', trim($links->first()->text()));
+        self::assertSame('/applications?q=jane@example.com', $links->first()->attr('href'));
+    }
+
     public function test_an_invalid_filter_is_a_bad_request(): void
     {
         $this->client->request('GET', '/applications?status=on_hold');

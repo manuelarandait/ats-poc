@@ -19,6 +19,8 @@ final readonly class JobApplicationSummary
         public string $screeningStatus,
         public ?int $aiScore,
         public \DateTimeImmutable $appliedAt,
+        /** Applications sent from this email address, this one included. */
+        public int $applicationsFromEmail = 1,
     ) {
     }
 }

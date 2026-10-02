@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Recruitment\Infrastructure\Persistence\Dbal;
 
 use App\Recruitment\Application\FindJobApplication\JobApplicationDetails;
+use App\Recruitment\Application\FindJobApplication\OtherApplication;
 use App\Recruitment\Application\FindJobApplicationStats\JobApplicationStats;
 use App\Recruitment\Application\JobApplicationReadModel;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationPage;
@@ -49,6 +50,8 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
                 'a.screening_status',
                 'a.ai_score',
                 'a.applied_at',
+                // Served by idx_job_application_candidate_email; only runs for the rows of the page.
+                '(SELECT COUNT(*) FROM job_application same WHERE same.candidate_email = a.candidate_email) AS applications_from_email',
             )
             ->orderBy($this->sortExpression($criteria->sort), $criteria->direction->value.(JobApplicationSort::Score === $criteria->sort ? ' NULLS LAST' : ''))
             // Ties (same name, same status…) newest first; UUID v7 is time-ordered: stable final tie-break.
@@ -72,6 +75,7 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
                     $row->string('screening_status'),
                     $row->nullableInt('ai_score'),
                     $row->date('applied_at'),
+                    $row->int('applications_from_email'),
                 );
             }, $rows)),
             $total,
@@ -114,7 +118,39 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
             $row->date('applied_at'),
             $row->nullableDate('screened_at'),
             $row->date('updated_at'),
+            $this->otherApplications($id, $row->string('candidate_email')),
         );
+    }
+
+    /**
+     * @return list<OtherApplication>
+     */
+    private function otherApplications(JobApplicationId $id, string $email): array
+    {
+        $rows = $this->connection->createQueryBuilder()
+            ->select('a.id', 'o.title AS position_title', 'a.status', 'a.screening_status', 'a.ai_score', 'a.applied_at')
+            ->from('job_application', 'a')
+            ->innerJoin('a', 'job_offer', 'o', 'o.id = a.job_offer_id')
+            ->where('a.candidate_email = :email')
+            ->andWhere('a.id <> :id')
+            ->setParameter('email', $email)
+            ->setParameter('id', $id->value)
+            ->orderBy('a.applied_at', 'DESC')
+            ->addOrderBy('a.id', 'DESC')
+            ->fetchAllAssociative();
+
+        return array_values(array_map(static function (array $values): OtherApplication {
+            $row = new Row($values);
+
+            return new OtherApplication(
+                $row->string('id'),
+                $row->string('position_title'),
+                $row->string('status'),
+                $row->string('screening_status'),
+                $row->nullableInt('ai_score'),
+                $row->date('applied_at'),
+            );
+        }, $rows));
     }
 
     public function stats(?JobOfferId $jobOfferId, ?string $search): JobApplicationStats

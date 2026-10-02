@@ -11,6 +11,9 @@ use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
  */
 final readonly class JobApplicationDetails
 {
+    /**
+     * @param list<OtherApplication> $otherApplications from the same email, newest first
+     */
     public function __construct(
         public string $id,
         public string $candidateName,
@@ -27,6 +30,7 @@ final readonly class JobApplicationDetails
         public \DateTimeImmutable $appliedAt,
         public ?\DateTimeImmutable $screenedAt,
         public \DateTimeImmutable $updatedAt,
+        public array $otherApplications = [],
     ) {
     }
 

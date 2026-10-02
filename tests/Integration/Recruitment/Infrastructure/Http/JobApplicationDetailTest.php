@@ -63,6 +63,27 @@ final class JobApplicationDetailTest extends WebTestCase
         self::assertSelectorExists('turbo-frame#application-detail [data-controller="poll"]');
     }
 
+    public function test_other_applications_from_the_same_email_are_listed_with_a_caveat(): void
+    {
+        $application = JobApplicationFactory::new()->candidate('Jane Doe', 'jane@example.com')->create();
+        $other = JobApplicationFactory::new()->forOffer(JobOfferFactory::createOne(['title' => 'Data Engineer']))->candidate('Jane Doe', 'jane@example.com')->create();
+
+        $this->client->request('GET', '/applications/'.$application->id->value);
+
+        self::assertSelectorTextContains('section[aria-labelledby="other-title"]', 'Data Engineer');
+        self::assertSelectorTextContains('section[aria-labelledby="other-title"]', "same email address, which isn't verified");
+        self::assertSelectorExists('section[aria-labelledby="other-title"] a[href="/applications/'.$other->id->value.'"]');
+    }
+
+    public function test_without_other_applications_there_is_no_such_section(): void
+    {
+        $application = JobApplicationFactory::createOne();
+
+        $this->client->request('GET', '/applications/'.$application->id->value);
+
+        self::assertSelectorNotExists('section[aria-labelledby="other-title"]');
+    }
+
     public function test_a_failed_analysis_is_explained_without_technical_details(): void
     {
         $application = JobApplicationFactory::new()

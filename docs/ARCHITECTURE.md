@@ -396,6 +396,10 @@ The brief asks for the apply → enrich → browse flow; the README lists the ex
 
 Neither is a business rule, so neither touches the domain or the use case: the check happens in the HTTP controller before the command is dispatched, and another entry point (an API, a CLI) would set its own policy. A rule such as "one application per email and offer" would be different: that is business, and it would live in the domain.
 
+**Applications from the same email are grouped on the read side.** A recruiter wants to see that a person has applied before, as real ATSs do. Each row of the list counts the applications sent from its email (linking to all of them) and the detail page lists the others. It is a query need, so it lives where CQRS puts queries: the read model (a correlated count and a second query, backed by an index on the email). The write model is unchanged: the candidate is still a value object inside each application.
+
+The step not taken on purpose is promoting `Candidate` to an aggregate (its own id and table, applications referencing it, one candidate per email). **The email isn't verified**: grouping applications under one identity by email would let anyone attach an application, with their name, phone and CV, to someone else's profile, or overwrite it. That is why the UI says "from the same email address, which isn't verified" rather than presenting one person. See the next steps below.
+
 ## Trade-offs and next steps
 
 Hexagonal architecture is not free: more files, more indirection, some mapping between layers. For a plain CRUD, a classic Symfony + API Platform approach is more productive. It pays off when business rules are rich, the code must live for years, or — as here — asynchronous flows between separate parts of the domain need clear boundaries.
@@ -408,4 +412,5 @@ What would change on the way to production:
 - **Accent-insensitive search** (`unaccent`) and keyset pagination for very large tables.
 - **Internationalised emails** (non-ASCII local parts), currently rejected by the `Email` value object.
 - **A real user store** (users table or SSO) instead of the in-memory demo recruiter account.
+- **A `Candidate` aggregate, once the email is verified** (a confirmation link, or candidate accounts): its own id and table, applications referencing it by id, a unique email, a migration that merges today's duplicates, and a way for recruiters to merge or split profiles by hand. Until then, grouping stays on the read side (see [Beyond the brief](#beyond-the-brief)).
 - **Rate limiting across instances**: the counters live in the app cache, so several app instances would share them through Redis, and behind a load balancer `trusted_proxies` must be set so the client IP is the real one.

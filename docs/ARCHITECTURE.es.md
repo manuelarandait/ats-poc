@@ -396,6 +396,10 @@ El enunciado pide el flujo candidatura → enriquecimiento → consulta; el READ
 
 Ninguno de los dos es una regla de negocio, así que no tocan el dominio ni el caso de uso: la comprobación se hace en el controlador HTTP antes de despachar el command, y otro punto de entrada (una API, la consola) tendría su propia política. Una regla como "una candidatura por email y oferta" sería distinta: eso es negocio y viviría en el dominio.
 
+**Las candidaturas del mismo email se agrupan en el lado de lectura.** El reclutador quiere ver que una persona ya ha aplicado antes, como hacen los ATS reales. Cada fila del listado cuenta las candidaturas enviadas desde su email (con un enlace a todas) y el detalle enumera las demás. Es una necesidad de consulta, así que vive donde CQRS pone las consultas: en el read model (un conteo correlacionado y una segunda consulta, apoyados en un índice sobre el email). El modelo de escritura no cambia: el candidato sigue siendo un value object dentro de cada candidatura.
+
+El paso que no se ha dado a propósito es convertir `Candidate` en un agregado (con su id y su tabla, las candidaturas referenciándolo, un candidato por email). **El email no está verificado**: agrupar candidaturas bajo una identidad por email permitiría a cualquiera colgar una candidatura, con su nombre, teléfono y CV, en el perfil de otra persona, o sobrescribirlo. Por eso la interfaz dice "desde la misma dirección de email, que no está verificada" en lugar de presentarlo como una sola persona. Ver los próximos pasos.
+
 ## Trade-offs y próximos pasos
 
 La arquitectura hexagonal no sale gratis: más ficheros, más indirección y algo de mapeo entre capas. Para un CRUD sencillo, un enfoque clásico con Symfony y API Platform es más productivo. Compensa cuando las reglas de negocio son ricas, el código tiene que vivir muchos años o, como aquí, hay flujos asíncronos entre partes separadas del dominio que necesitan fronteras claras.
@@ -408,4 +412,5 @@ Qué cambiaría de cara a producción:
 - **Búsqueda insensible a tildes** (`unaccent`) y paginación keyset para tablas muy grandes.
 - **Emails internacionalizados** (con caracteres no ASCII), que hoy rechaza el value object `Email`.
 - **Un almacén de usuarios real** (tabla de usuarios o SSO) en lugar de la cuenta de reclutador de demo en memoria.
+- **Un agregado `Candidate`, una vez verificado el email** (un enlace de confirmación o cuentas de candidato): con su id y su tabla, las candidaturas referenciándolo por id, email único, una migración que fusione los duplicados actuales y una forma de que el reclutador fusione o separe perfiles a mano. Hasta entonces, la agrupación se queda en el lado de lectura (ver [Más allá del enunciado](#más-allá-del-enunciado)).
 - **Rate limiting entre instancias**: los contadores viven en la caché de la aplicación, así que con varias instancias se compartirían en Redis, y detrás de un balanceador habría que configurar `trusted_proxies` para que la IP del cliente sea la real.

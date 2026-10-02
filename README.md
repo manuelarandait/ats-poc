@@ -47,12 +47,12 @@ make test   # all tests
 make qa     # PHP-CS-Fixer (dry-run) + PHPStan level max + Deptrac
 ```
 
-**200 tests**, all run in Docker against a real PostgreSQL test database:
+**215 tests**, all run in Docker against a real PostgreSQL test database:
 
 | Level | Tests | What they prove |
 |---|---|---|
-| Unit | 130 | Business rules, use cases, mocked-LLM scoring, JSON serializer — no kernel, no database |
-| Integration | 70 | Doctrine round-trips and SQL read models, the buses, contract tests between contexts, a real Messenger worker end to end, and functional tests of every page (incl. access control) |
+| Unit | 134 | Business rules, use cases, mocked-LLM scoring, JSON serializer — no kernel, no database |
+| Integration | 81 | Doctrine round-trips and SQL read models, the buses, contract tests between contexts, a real Messenger worker end to end, and functional tests of every page (incl. access control) |
 
 **Quality gates**: PHPStan at level max, PHP-CS-Fixer (`@Symfony`), and **Deptrac**, which fails the build if the domain depends on the framework or if one bounded context imports another. GitHub Actions runs `make init`, `make qa` and `make test` on every pull request.
 
@@ -78,12 +78,13 @@ Not asked for, added because a real recruiting tool would need them. None of the
 | **Abuse protection** | The apply form accepts 5 valid applications per IP every 15 minutes (`APPLY_RATE_LIMIT`; raise it in `.env.local` for heavy manual testing), answering `429` beyond that; the login allows 5 failed attempts per minute. |
 | **Resilient AI enrichment** | A failing (mocked) LLM is retried 3 times with back-off; then the application shows *AI unavailable* instead of staying pending forever. |
 | **Hiring pipeline** | Statuses with transitions guarded by the domain: one click to advance, an inline confirmation to reject, a stepper showing the stage. |
+| **Applications grouped by email** | Each row shows how many applications came from its email (linking to all of them) and the detail page lists the others. Grouped on the read side only, because the email isn't verified: [why](docs/ARCHITECTURE.md#beyond-the-brief). |
 | **Overview** | Totals, ongoing analyses, interviews and average score; status tabs with counts; applications per offer for recruiters. |
 | **Sorting and pagination** | Click any column to sort (status in pipeline order, unscored applications last); first/previous/numbered/next/last pages and a page size. All of it in the URL, combined with the filters. |
 | **UI quality** | Dark mode, keyboard and screen-reader friendly, toasts, works without JavaScript (filters fall back to a plain form). |
 | **Enforced architecture** | Deptrac, PHPStan level max and CI on every pull request. |
 
-The reasons behind each one are in the [decision log](docs/PLAN.md); abuse protection is described in [Architecture → Beyond the brief](docs/ARCHITECTURE.md#beyond-the-brief).
+The reasons behind each one are in the [decision log](docs/PLAN.md); abuse protection and the email grouping are described in [Architecture → Beyond the brief](docs/ARCHITECTURE.md#beyond-the-brief).
 
 ## Architecture in a nutshell
 

@@ -77,7 +77,17 @@
                                             {# The link covers the whole row. #}
                                             <a href="{{ path('applications_show', {id: item.id}) }}" data-turbo-frame="_top"
                                                class="font-medium text-slate-900 after:absolute after:inset-0 focus-visible:outline-none dark:text-slate-100">{{ item.candidateName }}</a>
-                                            <div class="meta truncate">{{ item.candidateEmail }}</div>
+                                            <div class="meta flex min-w-0 items-center gap-2">
+                                                <span class="truncate">{{ item.candidateEmail }}</span>
+                                                {% if item.applicationsFromEmail > 1 %}
+                                                    {# Above the row link: shows every application from this email. #}
+                                                    <a href="{{ path('applications_index', {q: item.candidateEmail}) }}" data-turbo-frame="_top"
+                                                       class="relative z-10 inline-flex shrink-0 items-center gap-1 rounded-full bg-indigo-50 px-2 py-0.5 font-medium text-indigo-700 hover:bg-indigo-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 dark:bg-indigo-500/15 dark:text-indigo-300 dark:hover:bg-indigo-500/25"
+                                                       title="Show every application from this email">
+                                                        <twig:Icon name="users" class="size-3" />{{ item.applicationsFromEmail }} applications
+                                                    </a>
+                                                {% endif %}
+                                            </div>
                                         </div>
                                     </div>
                                 </td>

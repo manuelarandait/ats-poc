@@ -61,6 +61,21 @@ final class FindJobApplicationTest extends KernelTestCase
         self::assertNull($details->screenedAt);
     }
 
+    public function test_the_detail_lists_the_other_applications_from_the_same_email_newest_first(): void
+    {
+        $data = JobOfferFactory::createOne(['title' => 'Data Engineer']);
+        $frontend = JobOfferFactory::createOne(['title' => 'Frontend Engineer']);
+        $current = JobApplicationFactory::new()->candidate('Jane Doe', 'jane@example.com')->appliedAt('-1 day')->create();
+        JobApplicationFactory::new()->forOffer($data)->candidate('Jane Doe', 'jane@example.com')->appliedAt('-3 days')->screened(64)->create();
+        JobApplicationFactory::new()->forOffer($frontend)->candidate('Jane D.', 'jane@example.com')->appliedAt('-2 days')->create();
+        JobApplicationFactory::new()->candidate('Someone Else', 'someone@example.com')->create();
+
+        $others = $this->find($current->id->value)->otherApplications;
+
+        self::assertSame(['Frontend Engineer', 'Data Engineer'], array_map(static fn ($other): string => $other->positionTitle, $others));
+        self::assertSame(64, $others[1]->aiScore);
+    }
+
     public function test_an_unknown_application_is_not_found(): void
     {
         $this->expectException(JobApplicationNotFound::class);

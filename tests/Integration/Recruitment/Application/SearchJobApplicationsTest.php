@@ -164,6 +164,21 @@ final class SearchJobApplicationsTest extends KernelTestCase
         self::assertSame(['Newer', 'Older'], $this->names($this->search(sort: 'salary', direction: 'sideways')));
     }
 
+    public function test_each_row_counts_the_applications_from_its_email_whatever_the_filters(): void
+    {
+        $php = JobOfferFactory::createOne();
+        JobApplicationFactory::new()->forOffer($php)->candidate('Jane Doe', 'jane@example.com')->create();
+        JobApplicationFactory::new()->candidate('Jane Doe', 'jane@example.com')->create();
+        JobApplicationFactory::new()->candidate('John Smith', 'john@example.com')->create();
+
+        $counts = [];
+        foreach ($this->search(jobOfferId: $php->id->value)->items as $item) {
+            $counts[$item->candidateEmail] = $item->applicationsFromEmail;
+        }
+        self::assertSame(['jane@example.com' => 2], $counts, 'The other application is counted even though the position filter hides it.');
+        self::assertSame(1, $this->search(search: 'john')->items[0]->applicationsFromEmail);
+    }
+
     public function test_an_unknown_status_filter_is_rejected(): void
     {
         $this->expectException(UnknownJobApplicationStatus::class);
