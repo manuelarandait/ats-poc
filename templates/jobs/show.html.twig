@@ -45,7 +45,13 @@
             <p class="meta mt-1">Fields marked * are required. We'll analyse your CV right after you apply.</p>
 
             {{ form_start(form, {attr: {class: 'mt-6 space-y-5', novalidate: 'novalidate'}}) }}
-                {{ form_errors(form) }}
+                {# Errors about the whole submission (e.g. too many applications), not a single field. #}
+                {% if form.vars.errors|length %}
+                    <div role="alert" class="flex gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                        <twig:Icon name="x-circle" class="mt-0.5" />
+                        <div>{% for error in form.vars.errors %}<p>{{ error.message }}</p>{% endfor %}</div>
+                    </div>
+                {% endif %}
 
                 <div class="grid gap-5 sm:grid-cols-2">
                     <div class="sm:col-span-2">{{ form_row(form.fullName) }}</div>

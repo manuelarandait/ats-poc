@@ -84,6 +84,25 @@ final class RecruiterAccessTest extends WebTestCase
         self::assertResponseRedirects('/login');
     }
 
+    public function test_repeated_failed_sign_ins_are_throttled(): void
+    {
+        $this->client->disableReboot();
+
+        for ($i = 1; $i <= 5; ++$i) {
+            $this->client->request('GET', '/login');
+            $this->client->submitForm('Sign in', ['email' => RecruiterLogin::EMAIL, 'password' => 'wrong-'.$i]);
+        }
+
+        // Even the right password is refused while the account is throttled.
+        $this->client->request('GET', '/login');
+        $this->client->submitForm('Sign in', ['email' => RecruiterLogin::EMAIL, 'password' => RecruiterLogin::PASSWORD]);
+        $this->client->followRedirect();
+
+        self::assertSelectorTextContains('[role="alert"]', 'Too many failed login attempts');
+        $this->client->request('GET', '/applications');
+        self::assertResponseRedirects('/login');
+    }
+
     public function test_logging_out_closes_the_recruiter_area(): void
     {
         RecruiterLogin::as($this->client)->request('GET', '/applications');

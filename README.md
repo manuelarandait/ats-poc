@@ -95,7 +95,7 @@ Full explanation, diagrams and the comparison with a classic Symfony layout: **[
 | Messaging | RabbitMQ (AMQP), dedicated worker container, Doctrine failure transport |
 | Database | PostgreSQL 16 (`pg_trgm` for search) |
 | UI | Twig + Twig Components, Symfony UX Turbo + Stimulus, Tailwind CSS 4 — no Node, no build step beyond `make init` |
-| Auth | Symfony Security (recruiter area) |
+| Auth & abuse | Symfony Security (recruiter area, login throttling), Symfony RateLimiter on the apply form |
 | Tooling | PHPUnit 12, Foundry, dama/doctrine-test-bundle, PHPStan, PHP-CS-Fixer, Deptrac, GitHub Actions |
 | Runtime | Docker Compose (FrankenPHP) |
 
@@ -114,3 +114,4 @@ Documented trade-offs, with what would change on the way to production, are list
 - Events are published after the database commit but without a **transactional outbox**: if RabbitMQ is down at that exact moment, the event is lost.
 - Search is case-insensitive but **not accent-insensitive**; emails with non-ASCII characters are rejected.
 - A single **in-memory demo recruiter** account; candidates have no accounts.
+- The apply form accepts **5 valid applications per IP every 15 minutes** (`APPLY_RATE_LIMIT`); raise it in `.env.local` for heavy manual testing.

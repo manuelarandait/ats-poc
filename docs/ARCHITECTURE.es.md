@@ -253,6 +253,7 @@ sequenceDiagram
     participant MQ as RabbitMQ
 
     C->>H: POST del formulario
+    H->>H: rate limit por IP del cliente (solo envíos válidos; 429 si se supera)
     H->>CB: SubmitJobApplicationCommand (id = nuevo UUID v7)
     CB->>CB: abre transacción
     CB->>S: handle
@@ -265,6 +266,8 @@ sequenceDiagram
     CB->>MQ: JobApplicationSubmitted (solo ahora, tras el commit)
     H-->>C: redirección — el análisis de IA sigue en segundo plano
 ```
+
+**La protección contra abusos vive en el borde.** Cada candidatura válida cuesta una escritura y un análisis de IA, así que el formulario acepta como máximo `APPLY_RATE_LIMIT` (5) envíos válidos por IP cada 15 minutos (ventana deslizante, Symfony RateLimiter); a partir de ahí responde `429` con `Retry-After` y conserva lo que el candidato había escrito. El login del reclutador se limita igual (5 intentos fallidos por minuto). Ninguno de los dos es una regla de negocio, así que no tocan el dominio ni el caso de uso: otro punto de entrada (una API, la consola) tendría su propia política.
 
 ### Enriquecimiento con IA (asíncrono, en el worker)
 
@@ -399,3 +402,4 @@ Qué cambiaría de cara a producción:
 - **Búsqueda insensible a tildes** (`unaccent`) y paginación keyset para tablas muy grandes.
 - **Emails internacionalizados** (con caracteres no ASCII), que hoy rechaza el value object `Email`.
 - **Un almacén de usuarios real** (tabla de usuarios o SSO) en lugar de la cuenta de reclutador de demo en memoria.
+- **Rate limiting entre instancias**: los contadores viven en la caché de la aplicación, así que con varias instancias se compartirían en Redis, y detrás de un balanceador habría que configurar `trusted_proxies` para que la IP del cliente sea la real.

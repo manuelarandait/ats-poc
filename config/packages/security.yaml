@@ -31,6 +31,11 @@ security:
                 username_parameter: email
                 password_parameter: password
                 default_target_path: applications_index # unless a protected page was requested first
+            # Brute-force protection: 5 failed sign-ins per minute for an email + IP pair.
+            login_throttling:
+                max_attempts: 5
+                interval: '1 minute'
+                storage_service: app.rate_limiter.storage
             logout:
                 path: /logout
                 target: jobs_index

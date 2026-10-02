@@ -253,6 +253,7 @@ sequenceDiagram
     participant MQ as RabbitMQ
 
     C->>H: POST apply form
+    H->>H: rate limit per client IP (valid submissions only; 429 when exceeded)
     H->>CB: SubmitJobApplicationCommand (id = new UUID v7)
     CB->>CB: begin transaction
     CB->>S: handle
@@ -265,6 +266,8 @@ sequenceDiagram
     CB->>MQ: JobApplicationSubmitted (only now, after commit)
     H-->>C: redirect — AI analysis runs in the background
 ```
+
+**Abuse protection lives at the edge.** Every valid application costs a write and an AI analysis, so the apply form accepts at most `APPLY_RATE_LIMIT` (5) valid submissions per client IP every 15 minutes (sliding window, Symfony RateLimiter); beyond that it answers `429` with `Retry-After` and keeps what the candidate typed. The recruiter login is throttled the same way (5 failed attempts per minute). Neither is a business rule, so neither touches the domain or the use case: another entry point (an API, a CLI) would set its own policy.
 
 ### AI enrichment (asynchronous, in the worker)
 
@@ -399,3 +402,4 @@ What would change on the way to production:
 - **Accent-insensitive search** (`unaccent`) and keyset pagination for very large tables.
 - **Internationalised emails** (non-ASCII local parts), currently rejected by the `Email` value object.
 - **A real user store** (users table or SSO) instead of the in-memory demo recruiter account.
+- **Rate limiting across instances**: the counters live in the app cache, so several app instances would share them through Redis, and behind a load balancer `trusted_proxies` must be set so the client IP is the real one.

@@ -1,0 +1,26 @@
+# Abuse protection at the HTTP edge (bots flooding the apply form). Each valid
+# application costs a write and an AI analysis, so that is what gets limited.
+framework:
+    rate_limiter:
+        job_application:
+            # Sliding window: no burst allowed at the boundary between two windows.
+            policy: sliding_window
+            limit: '%env(int:APPLY_RATE_LIMIT)%'
+            interval: '15 minutes'
+            storage_service: app.rate_limiter.storage
+
+services:
+    # Shared by the apply limiter and the login throttling (keys are namespaced
+    # per limiter). Backed by the app cache; with several app instances this
+    # pool would point to Redis so they share the counters.
+    app.rate_limiter.storage:
+        class: Symfony\Component\RateLimiter\Storage\CacheStorage
+        arguments: ['@cache.rate_limiter']
+
+when@test:
+    services:
+        # In memory and not reset between requests: each test starts with fresh
+        # counters, and a test that keeps its kernel keeps them across requests.
+        app.rate_limiter.storage:
+            class: Symfony\Component\RateLimiter\Storage\InMemoryStorage
+            arguments: []
