@@ -52,14 +52,50 @@ final class FakeLlmCvAnalyzerTest extends TestCase
         self::assertEquals($this->analyzer->analyse($cv, $this->backendPosition), $this->analyzer->analyse($cv, $this->backendPosition));
     }
 
-    public function test_the_summary_explains_the_headline_experience_matched_and_missing_skills(): void
+    public function test_the_summary_describes_the_profile_then_the_fit_for_the_position(): void
     {
         $analysis = $this->analyzer->analyse("Backend engineer at Acme\n5 years with PHP and Symfony.", $this->backendPosition);
 
-        self::assertStringStartsWith('Backend engineer at Acme.', $analysis->summary);
-        self::assertStringContainsString('5 years of experience', $analysis->summary);
-        self::assertStringContainsString('Matches 2 of 8 key skills for Senior PHP Backend Engineer: PHP, Symfony.', $analysis->summary);
-        self::assertStringContainsString('Missing: Doctrine, DDD, RabbitMQ, PostgreSQL, Docker, PHPUnit.', $analysis->summary);
+        self::assertSame(
+            'Backend engineer with 5 years of experience. Main skills: PHP, Symfony.'
+            .' Matches 2 of 8 key skills for Senior PHP Backend Engineer: PHP, Symfony.'
+            .' Missing: Doctrine, DDD, RabbitMQ, PostgreSQL, Docker, PHPUnit.',
+            $analysis->summary,
+        );
+    }
+
+    public function test_the_role_skips_the_name_line_and_drops_the_details_around_the_title(): void
+    {
+        $cv = "Jane Doe\nSenior Full-Stack Engineer (Symfony / Vue) - Freelance\nMadrid\n9 years building web products.";
+
+        $analysis = $this->analyzer->analyse($cv, $this->backendPosition);
+
+        self::assertStringStartsWith('Senior Full-Stack Engineer with 9 years of experience. Main skills: Symfony, Vue.js.', $analysis->summary);
+    }
+
+    public function test_a_cv_written_in_spanish_is_understood_too(): void
+    {
+        $cv = "Ana López\ndesarrolladora backend en Acme\nCasi 11 años con PHP, Symfony y Docker.";
+
+        $analysis = $this->analyzer->analyse($cv, $this->backendPosition);
+
+        self::assertStringStartsWith('Desarrolladora backend with 11 years of experience. Main skills: PHP, Symfony, Docker.', $analysis->summary);
+    }
+
+    public function test_main_skills_follow_the_order_of_the_cv_and_are_capped(): void
+    {
+        $cv = 'Kubernetes, Redis, Python, PHP, React, TypeScript and Docker.';
+
+        $analysis = $this->analyzer->analyse($cv, $this->backendPosition);
+
+        self::assertStringStartsWith('Main skills: Kubernetes, Redis, Python, PHP, React (+2 more).', $analysis->summary);
+    }
+
+    public function test_a_cv_without_role_experience_or_skills_says_so_instead_of_inventing_a_profile(): void
+    {
+        $analysis = $this->analyzer->analyse('test', $this->backendPosition);
+
+        self::assertStringStartsWith("The CV gives too little detail to describe the candidate's profile. Matches 0 of 8", $analysis->summary);
     }
 
     public function test_a_cv_with_the_failure_marker_makes_the_llm_unavailable(): void

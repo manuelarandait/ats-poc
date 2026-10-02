@@ -17,7 +17,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *  - score = 80% skill coverage (skills asked by the position found in the CV;
  *            those listed after "Nice to have" weigh half)
  *          + 20% seniority (years of experience, capped at 8)
- *  - summary = CV headline + matched skills + missing required / nice-to-have
+ *  - summary = the candidate's profile (role, years of experience, main
+ *            skills in the order the CV lists them), then the fit for the
+ *            position (matched skills, missing required / nice-to-have)
  *  - latency: sleeps MOCK_LLM_LATENCY_MS, so the UI shows "analysing…"
  *  - failures: MOCK_LLM_FAILURE_RATE (0–1) of calls fail at random, and a CV
  *    containing "[simulate-llm-failure]" always fails (deterministic demo/tests)
@@ -62,7 +64,21 @@ final readonly class FakeLlmCvAnalyzer implements CvAnalyzer
         'SQL' => '\bsql\b',
         'AWS' => '\baws\b',
         'Java' => '\bjava\b',
+        'JavaScript' => '\bjavascript\b',
+        'Node.js' => '\bnode(\.?js)?\b',
+        'Vue.js' => '\bvue(\.?js)?\b',
+        'Angular' => '\bangular\b',
+        'GraphQL' => '\bgraphql\b',
+        'Redis' => '\bredis\b',
+        'MongoDB' => '\bmongo(db)?\b',
+        'Kubernetes' => '\bkubernetes\b|\bk8s\b',
     ];
+
+    /** A line naming a job title, in English or Spanish (CVs are pasted as they are). */
+    private const string ROLE_PATTERN = '/\b(engineer|developer|programmer|architect|lead|manager|analyst|scientist|designer|consultant|cto|devops|desarrollador|desarrolladora|ingeniero|ingeniera|programador|programadora|arquitecto|arquitecta)\b/iu';
+    private const int ROLE_LINES_SCANNED = 6;
+    private const int ROLE_MAX_LENGTH = 60;
+    private const int MAIN_SKILLS_SHOWN = 5;
 
     private const int MAX_YEARS_COUNTED = 8;
     private const float NICE_TO_HAVE_WEIGHT = 0.5;
@@ -144,7 +160,7 @@ final readonly class FakeLlmCvAnalyzer implements CvAnalyzer
 
     private function yearsOfExperience(string $cv): int
     {
-        preg_match_all('/(\d{1,2})\+?\s*years?/i', $cv, $matches);
+        preg_match_all('/(\d{1,2})\+?\s*(?:years?|años)\b/iu', $cv, $matches);
 
         return [] === $matches[1] ? 0 : max(array_map(intval(...), $matches[1]));
     }
@@ -154,11 +170,10 @@ final readonly class FakeLlmCvAnalyzer implements CvAnalyzer
      */
     private function summary(string $cv, Position $position, array $skills, int $years): string
     {
-        $headline = rtrim(mb_substr(strtok(trim($cv), "\n") ?: 'Candidate', 0, 140), '. ').'.';
-        $experience = $years > 0 ? \sprintf(' %d years of experience.', $years) : '';
+        $profile = $this->profile($cv, $years);
 
         if ([] === $skills['asked']) {
-            return $headline.$experience;
+            return $profile;
         }
 
         $fit = \sprintf(' Matches %d of %d key skills for %s', \count($skills['matched']), \count($skills['asked']), $position->title);
@@ -166,6 +181,79 @@ final readonly class FakeLlmCvAnalyzer implements CvAnalyzer
         $gaps = [] === $skills['missingRequired'] ? '' : ' Missing: '.implode(', ', $skills['missingRequired']).'.';
         $gaps .= [] === $skills['missingNiceToHave'] ? '' : ' Nice to have, missing: '.implode(', ', $skills['missingNiceToHave']).'.';
 
-        return $headline.$experience.$fit.$gaps;
+        return $profile.$fit.$gaps;
+    }
+
+    /**
+     * Who the candidate is, from the CV alone: "Backend engineer with 7 years
+     * of experience. Main skills: PHP, Symfony, Doctrine (+2 more).".
+     */
+    private function profile(string $cv, int $years): string
+    {
+        $role = $this->role($cv);
+        $mainSkills = $this->skillsByAppearance($cv);
+
+        if (null === $role && 0 === $years && [] === $mainSkills) {
+            return 'The CV gives too little detail to describe the candidate\'s profile.';
+        }
+
+        $parts = [];
+
+        if (null !== $role || $years > 0) {
+            $parts[] = $years > 0 ? \sprintf('%s with %d years of experience.', $role ?? 'Candidate', $years) : $role.'.';
+        }
+
+        if ([] !== $mainSkills) {
+            $more = \count($mainSkills) - self::MAIN_SKILLS_SHOWN;
+            $parts[] = 'Main skills: '.implode(', ', \array_slice($mainSkills, 0, self::MAIN_SKILLS_SHOWN)).($more > 0 ? \sprintf(' (+%d more)', $more) : '').'.';
+        }
+
+        return implode(' ', $parts);
+    }
+
+    /**
+     * The job title from the CV's first lines (the very first one is often the
+     * name): "Senior Full-Stack Engineer (Symfony / Vue) - Freelance" →
+     * "Senior Full-Stack Engineer".
+     */
+    private function role(string $cv): ?string
+    {
+        $lines = \array_slice(array_values(array_filter(array_map(trim(...), explode("\n", $cv)))), 0, self::ROLE_LINES_SCANNED);
+
+        foreach ($lines as $line) {
+            if (1 !== preg_match(self::ROLE_PATTERN, $line)) {
+                continue;
+            }
+
+            $role = (string) preg_replace('/\s*\([^)]*\)/u', '', $line);
+            $role = trim((preg_split('/\s+(?:at|en|@|[-–—|])\s+|[,.;:]/u', $role, 2) ?: [''])[0], " -–—|\t");
+
+            if ('' !== $role && mb_strlen($role) <= self::ROLE_MAX_LENGTH) {
+                return mb_ucfirst($role);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Every known skill in the text, in the order it first appears (what the
+     * candidate leads with is usually what they know best).
+     *
+     * @return list<string>
+     */
+    private function skillsByAppearance(string $text): array
+    {
+        $found = [];
+
+        foreach (self::SKILLS as $skill => $pattern) {
+            if (1 === preg_match('~'.$pattern.'~i', $text, $match, \PREG_OFFSET_CAPTURE)) {
+                $found[$skill] = $match[0][1];
+            }
+        }
+
+        asort($found);
+
+        return array_keys($found);
     }
 }
