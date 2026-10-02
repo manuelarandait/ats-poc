@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace App\Recruitment\Infrastructure\Persistence\Dbal;
 
 use App\Recruitment\Application\FindJobApplication\JobApplicationDetails;
+use App\Recruitment\Application\FindJobApplicationStats\JobApplicationStats;
 use App\Recruitment\Application\JobApplicationReadModel;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationPage;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationSearchCriteria;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationSummary;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
+use App\Recruitment\Domain\JobOffer\JobOfferId;
 use App\Shared\Infrastructure\Persistence\Dbal\Row;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\Query\QueryBuilder;
@@ -26,7 +28,11 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
 
     public function search(JobApplicationSearchCriteria $criteria): JobApplicationPage
     {
-        $filtered = $this->filtered($criteria);
+        $filtered = $this->filtered($criteria->jobOfferId, $criteria->search);
+
+        if (null !== $criteria->status) {
+            $filtered->andWhere('a.status = :status')->setParameter('status', $criteria->status->value);
+        }
 
         $total = new Row(['total' => (clone $filtered)->select('COUNT(*)')->fetchOne()])->int('total');
 
@@ -105,25 +111,52 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
         );
     }
 
-    private function filtered(JobApplicationSearchCriteria $criteria): QueryBuilder
+    public function stats(?JobOfferId $jobOfferId, ?string $search): JobApplicationStats
+    {
+        // One grouped scan; the totals are folded in PHP.
+        $rows = $this->filtered($jobOfferId, $search)
+            ->select(
+                'a.status',
+                'a.job_offer_id',
+                'COUNT(*) AS applications',
+                "COUNT(*) FILTER (WHERE a.screening_status = 'pending') AS analysing",
+                'COUNT(a.ai_score) AS scored',
+                'COALESCE(SUM(a.ai_score), 0) AS score_sum',
+            )
+            ->groupBy('a.status', 'a.job_offer_id')
+            ->fetchAllAssociative();
+
+        $byStatus = $byJobOffer = [];
+        $analysing = $scored = $scoreSum = 0;
+
+        foreach ($rows as $values) {
+            $row = new Row($values);
+            $count = $row->int('applications');
+            $byStatus[$row->string('status')] = ($byStatus[$row->string('status')] ?? 0) + $count;
+            $byJobOffer[$row->string('job_offer_id')] = ($byJobOffer[$row->string('job_offer_id')] ?? 0) + $count;
+            $analysing += $row->int('analysing');
+            $scored += $row->int('scored');
+            $scoreSum += $row->int('score_sum');
+        }
+
+        return new JobApplicationStats($byStatus, $byJobOffer, $analysing, 0 === $scored ? null : (int) round($scoreSum / $scored));
+    }
+
+    private function filtered(?JobOfferId $jobOfferId, ?string $search): QueryBuilder
     {
         $query = $this->connection->createQueryBuilder()
             ->from('job_application', 'a')
             ->innerJoin('a', 'job_offer', 'o', 'o.id = a.job_offer_id');
 
-        if (null !== $criteria->status) {
-            $query->andWhere('a.status = :status')->setParameter('status', $criteria->status->value);
+        if (null !== $jobOfferId) {
+            $query->andWhere('a.job_offer_id = :jobOfferId')->setParameter('jobOfferId', $jobOfferId->value);
         }
 
-        if (null !== $criteria->jobOfferId) {
-            $query->andWhere('a.job_offer_id = :jobOfferId')->setParameter('jobOfferId', $criteria->jobOfferId->value);
-        }
-
-        if (null !== $criteria->search) {
+        if (null !== $search) {
             // Case-insensitive "contains"; served by the pg_trgm GIN indexes.
             $query
                 ->andWhere('a.candidate_full_name ILIKE :search OR a.candidate_email ILIKE :search')
-                ->setParameter('search', '%'.addcslashes($criteria->search, '\\%_').'%');
+                ->setParameter('search', '%'.addcslashes($search, '\\%_').'%');
         }
 
         return $query;

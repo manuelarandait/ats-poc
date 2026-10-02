@@ -3,13 +3,15 @@
 {% block title %}Recruiter login{% endblock %}
 
 {% block body %}
-    <div class="mx-auto max-w-sm">
-        <div class="card p-8">
-            <h1 class="text-2xl font-semibold">Recruiter area</h1>
+    <div class="mx-auto grid max-w-4xl overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm lg:grid-cols-2 dark:border-slate-800 dark:bg-slate-900">
+        <div class="p-8 sm:p-10">
+            <twig:Logo class="size-9" />
+            <h1 class="mt-6 text-2xl font-semibold">Recruiter area</h1>
             <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Sign in to review applications. Candidates don't need an account.</p>
 
             {% if error %}
-                <div role="alert" class="mt-6 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                <div role="alert" class="mt-6 flex gap-2 rounded-lg border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
+                    <twig:Icon name="x-circle" class="mt-0.5" />
                     {{ error.messageKey|trans(error.messageData, 'security') }}
                 </div>
             {% endif %}
@@ -28,10 +30,34 @@
                 <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}" data-controller="csrf-protection">
                 <button type="submit" class="btn btn-primary w-full">Sign in</button>
             </form>
+
+            <p class="mt-6 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                Demo account: <span class="font-mono text-slate-700 dark:text-slate-200">recruiter@ats.test</span> / <span class="font-mono text-slate-700 dark:text-slate-200">recruiter</span>
+            </p>
         </div>
 
-        <p class="mt-4 rounded-lg border border-dashed border-slate-300 px-4 py-3 text-center text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
-            Demo account: <span class="font-mono text-slate-700 dark:text-slate-200">recruiter@ats.test</span> / <span class="font-mono text-slate-700 dark:text-slate-200">recruiter</span>
-        </p>
+        {# Product panel: hidden on small screens, where the form is all that matters. #}
+        <div class="relative hidden overflow-hidden bg-linear-to-br from-indigo-600 to-indigo-800 p-10 text-indigo-50 lg:block dark:from-indigo-700 dark:to-slate-900">
+            <div class="absolute -right-24 -top-24 size-72 rounded-full bg-white/10" aria-hidden="true"></div>
+            <div class="absolute -bottom-32 -left-20 size-72 rounded-full bg-white/5" aria-hidden="true"></div>
+            <div class="relative">
+                <p class="text-sm font-medium text-indigo-200">Hiring, without the busywork</p>
+                <h2 class="mt-2 text-2xl font-semibold text-white">Every application, summarised and scored before you open it.</h2>
+                <ul class="mt-8 space-y-5 text-sm">
+                    <li class="flex gap-3">
+                        <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-white/15"><twig:Icon name="sparkles" class="size-4 text-white" /></span>
+                        <span><strong class="block font-medium text-white">AI screening</strong>A summary and a relevance score for every CV.</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-white/15"><twig:Icon name="bolt" class="size-4 text-white" /></span>
+                        <span><strong class="block font-medium text-white">In the background</strong>Candidates never wait; results appear by themselves.</span>
+                    </li>
+                    <li class="flex gap-3">
+                        <span class="grid size-8 shrink-0 place-items-center rounded-lg bg-white/15"><twig:Icon name="chart" class="size-4 text-white" /></span>
+                        <span><strong class="block font-medium text-white">A clear pipeline</strong>Move candidates from received to hired in one click.</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
     </div>
 {% endblock %}

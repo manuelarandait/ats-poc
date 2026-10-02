@@ -2,7 +2,47 @@
 
 {# advance: the URL follows the filters, so results are shareable and Back works. #}
 <turbo-frame id="{{ frame }}" data-turbo-action="advance" class="block transition-opacity aria-busy:opacity-60">
+    {# Overview of what the search and position filters cover (the status is what the tabs pick). #}
+    {% set kpis = [
+        {label: 'Applications', value: stats.total, icon: 'inbox'},
+        {label: 'AI analysing now', value: stats.analysing, icon: 'sparkles', live: stats.analysing > 0},
+        {label: 'Interviewing', value: stats.forStatus('interviewing'), icon: 'chat'},
+        {label: 'Average AI score', value: stats.averageScore ?? '—', icon: 'chart', suffix: stats.averageScore is not null ? '/ 100' : null},
+    ] %}
+    <dl class="mb-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        {% for kpi in kpis %}
+            <div class="card flex items-center gap-4 p-4">
+                <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"><twig:Icon :name="kpi.icon" class="size-5" /></span>
+                <div class="min-w-0">
+                    <dt class="meta truncate">{{ kpi.label }}</dt>
+                    <dd class="flex items-baseline gap-1.5 text-2xl font-semibold tabular-nums">
+                        {{ kpi.value }}
+                        {% if kpi.suffix ?? null %}<span class="text-xs font-normal text-slate-400">{{ kpi.suffix }}</span>{% endif %}
+                        {% if kpi.live ?? false %}<span class="size-2 self-center rounded-full bg-indigo-500 motion-safe:animate-pulse" aria-hidden="true"></span>{% endif %}
+                    </dd>
+                </div>
+            </div>
+        {% endfor %}
+    </dl>
+
     <div class="card overflow-hidden">
+        {# Status tabs: radio buttons of the filters form (HTML form attribute), with live counts. #}
+        <fieldset class="border-b border-slate-200 dark:border-slate-800">
+            <legend class="sr-only">Status</legend>
+            <div class="flex gap-1 overflow-x-auto px-2">
+                {% for value, count in {'': stats.total}|merge(stats.byStatus) %}
+                    <label class="shrink-0 cursor-pointer">
+                        <input type="radio" name="status" value="{{ value }}" form="applications-filters" class="peer sr-only"
+                               {{ filters.status == value ? 'checked' }} data-controller="submit-on-change" data-action="submit-on-change#submit">
+                        <span class="flex items-center gap-2 border-b-2 border-transparent px-3 py-3 text-sm font-medium text-slate-500 transition-colors hover:text-slate-800 peer-checked:border-indigo-600 peer-checked:text-indigo-700 peer-focus-visible:rounded-t-md peer-focus-visible:ring-2 peer-focus-visible:ring-indigo-500 dark:text-slate-400 dark:hover:text-slate-200 dark:peer-checked:border-indigo-400 dark:peer-checked:text-indigo-300">
+                            {{ value ? value|replace({'_': ' '})|capitalize : 'All' }}
+                            <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs tabular-nums text-slate-600 dark:bg-slate-800 dark:text-slate-300">{{ count }}</span>
+                        </span>
+                    </label>
+                {% endfor %}
+            </div>
+        </fieldset>
+
         {% if page.items is empty %}
             {% if hasFilters %}
                 <twig:EmptyState title="No applications match these filters" text="Try another search or clear the filters." :actionUrl="path('applications_index')" actionLabel="Clear filters" />
@@ -25,10 +65,15 @@
                         {% for item in page.items %}
                             <tr class="relative transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
                                 <td class="px-4 py-3">
-                                    {# The link covers the whole row. #}
-                                    <a href="{{ path('applications_show', {id: item.id}) }}" data-turbo-frame="_top"
-                                       class="font-medium text-slate-900 after:absolute after:inset-0 focus-visible:outline-none dark:text-slate-100">{{ item.candidateName }}</a>
-                                    <div class="meta">{{ item.candidateEmail }}</div>
+                                    <div class="flex items-center gap-3">
+                                        <twig:Avatar :name="item.candidateName" />
+                                        <div class="min-w-0">
+                                            {# The link covers the whole row. #}
+                                            <a href="{{ path('applications_show', {id: item.id}) }}" data-turbo-frame="_top"
+                                               class="font-medium text-slate-900 after:absolute after:inset-0 focus-visible:outline-none dark:text-slate-100">{{ item.candidateName }}</a>
+                                            <div class="meta truncate">{{ item.candidateEmail }}</div>
+                                        </div>
+                                    </div>
                                 </td>
                                 <td class="hidden px-4 py-3 text-slate-600 md:table-cell dark:text-slate-300">{{ item.positionTitle }}</td>
                                 <td class="px-4 py-3">

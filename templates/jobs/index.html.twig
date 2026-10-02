@@ -3,9 +3,14 @@
 {% block title %}Open positions{% endblock %}
 
 {% block body %}
-    <div class="mb-8">
-        <h1 class="text-2xl font-semibold">Open positions</h1>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Pick a role, read the description and apply by pasting your CV. An AI assistant summarises every application for the hiring team.</p>
+    <div class="mb-8 flex flex-wrap items-end justify-between gap-4">
+        <div>
+            <h1 class="text-2xl font-semibold">Open positions</h1>
+            <p class="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">Pick a role, read the description and apply by pasting your CV. An AI assistant summarises every application for the hiring team.</p>
+        </div>
+        {% if offers is not empty %}
+            <p class="meta">{{ offers|length }} open {{ offers|length == 1 ? 'position' : 'positions' }}</p>
+        {% endif %}
     </div>
 
     {% if offers is empty %}
@@ -15,15 +20,25 @@
     {% else %}
         <ul class="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {% for offer in offers %}
-                <li class="card group relative flex flex-col p-6 transition hover:border-indigo-300 hover:shadow-md dark:hover:border-indigo-500/50">
-                    <h2 class="text-lg font-medium">
+                {% set title = offer.title|lower %}
+                {% set icon = 'data' in title ? 'database' : ('frontend' in title or 'react' in title ? 'monitor' : 'code') %}
+                <li class="card group relative flex flex-col p-6 transition hover:-translate-y-0.5 hover:border-indigo-300 hover:shadow-md motion-reduce:hover:translate-y-0 dark:hover:border-indigo-500/50">
+                    <div class="flex items-start justify-between gap-3">
+                        <span class="grid size-10 place-items-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-500/15 dark:text-indigo-300"><twig:Icon :name="icon" class="size-5" /></span>
+                        {% if stats %}
+                            {% set count = stats.forJobOffer(offer.id) %}
+                            <span class="badge bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700"><twig:Icon name="users" class="size-3.5" />{{ count }} {{ count == 1 ? 'application' : 'applications' }}</span>
+                        {% endif %}
+                    </div>
+                    <h2 class="mt-4 text-lg font-medium">
                         <a href="{{ path('jobs_show', {id: offer.id}) }}" class="focus-visible:outline-none">
-                            <span class="absolute inset-0 rounded-xl" aria-hidden="true"></span>
+                            <span class="absolute inset-0 rounded-xl group-has-focus-visible:ring-2 group-has-focus-visible:ring-indigo-500" aria-hidden="true"></span>
                             {{ offer.title }}
                         </a>
                     </h2>
-                    <p class="mt-2 line-clamp-4 text-sm text-slate-600 dark:text-slate-400">{{ offer.description }}</p>
-                    <span class="link mt-auto pt-4 text-sm">View &amp; apply <span aria-hidden="true">→</span></span>
+                    {# The first paragraph is the pitch; the full description is on the offer page. #}
+                    <p class="mt-2 line-clamp-3 text-sm text-slate-600 dark:text-slate-400">{{ offer.description|split("\n\n")|first }}</p>
+                    <span class="link mt-auto inline-flex items-center gap-1 pt-5 text-sm">View &amp; apply <twig:Icon name="arrow-right" class="size-4 transition-transform group-hover:translate-x-0.5" /></span>
                 </li>
             {% endfor %}
         </ul>

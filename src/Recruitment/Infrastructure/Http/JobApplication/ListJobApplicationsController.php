@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace App\Recruitment\Infrastructure\Http\JobApplication;
 
+use App\Recruitment\Application\FindJobApplicationStats\FindJobApplicationStatsQuery;
 use App\Recruitment\Application\ListJobOffers\ListJobOffersQuery;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationPage;
 use App\Recruitment\Application\SearchJobApplications\SearchJobApplicationsQuery;
-use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobApplication\UnknownJobApplicationStatus;
 use App\Shared\Domain\Bus\Query\QueryBus;
 use App\Shared\Domain\ValueObject\InvalidUuid;
@@ -56,6 +56,7 @@ final readonly class ListJobApplicationsController
 
         $context = [
             'page' => $page,
+            'stats' => $this->queries->ask(new FindJobApplicationStatsQuery($filters['position'], $filters['q'])),
             'filters' => $filters,
             'frame' => self::RESULTS_FRAME,
             'perPageOptions' => self::PER_PAGE_OPTIONS,
@@ -70,7 +71,6 @@ final readonly class ListJobApplicationsController
 
         return new Response($this->twig->render('applications/index.html.twig', $context + [
             'offers' => $this->queries->ask(new ListJobOffersQuery()),
-            'statuses' => JobApplicationStatus::cases(),
         ]));
     }
 
