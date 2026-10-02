@@ -33,8 +33,8 @@ It builds the image, starts the containers, installs dependencies, runs the migr
 
 1. **Apply** — open http://localhost:8080, pick a position, fill in your data and paste a CV. The application is stored immediately and you get a confirmation page.
 2. **Watch the AI work** — click *Open in the recruiter area* and sign in. The application shows *Analysing…* while the worker processes it (the mocked LLM takes ~1.5 s on purpose); the page updates by itself with the **summary** and the **score**.
-3. **Browse** — at `/applications`, type in the search box or change the status / position filters: results update as you type, newest first, with the score column. Page through the results and pick 10, 20 or 50 per page.
-4. **Move it along the pipeline** — on the detail page, change the status (`received → in_review → interviewing → hired`, or `rejected`). Only valid transitions are offered.
+3. **Browse** — at `/applications`, type in the search box, pick a status tab or a position: results update as you type, newest first, with the score column. Page through the results and pick 10, 20 or 50 per page.
+4. **Move it along the pipeline** — on the detail page, advance the application one step (`received → in_review → interviewing → hired`) or reject it. Only valid transitions are offered.
 5. **See a failure handled** — apply with a CV that contains `[simulate-llm-failure]`: the worker retries 3 times with back-off and the application ends up *AI unavailable* instead of staying pending forever.
 6. **Look behind the scenes** — `make logs` follows the worker; the RabbitMQ UI shows the `messages` queue; `docker compose exec app php bin/console messenger:failed:show` lists messages that exhausted their retries.
 
@@ -47,12 +47,12 @@ make test   # all tests
 make qa     # PHP-CS-Fixer (dry-run) + PHPStan level max + Deptrac
 ```
 
-**175 tests**, all run in Docker against a real PostgreSQL test database:
+**200 tests**, all run in Docker against a real PostgreSQL test database:
 
 | Level | Tests | What they prove |
 |---|---|---|
-| Unit | 117 | Business rules, use cases, mocked-LLM scoring, JSON serializer — no kernel, no database |
-| Integration | 58 | Doctrine round-trips and SQL read models, the buses, contract tests between contexts, a real Messenger worker end to end, and functional tests of every page (incl. access control) |
+| Unit | 130 | Business rules, use cases, mocked-LLM scoring, JSON serializer — no kernel, no database |
+| Integration | 70 | Doctrine round-trips and SQL read models, the buses, contract tests between contexts, a real Messenger worker end to end, and functional tests of every page (incl. access control) |
 
 **Quality gates**: PHPStan at level max, PHP-CS-Fixer (`@Symfony`), and **Deptrac**, which fails the build if the domain depends on the framework or if one bounded context imports another. GitHub Actions runs `make init`, `make qa` and `make test` on every pull request.
 
@@ -67,6 +67,23 @@ make qa     # PHP-CS-Fixer (dry-run) + PHPStan level max + Deptrac
 | Real-time filtering by status and position, and search by name or email | `SearchJobApplicationsTest` (each filter, search, combined filters), `BrowseJobApplicationsTest::test_it_filters_by_status_and_position_and_searches_by_name_or_email`, `…::test_live_filtering_only_renders_the_results_frame` |
 | The detail view shows all data, including the enrichment outputs | `JobApplicationDetailTest::test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps`, `FindJobApplicationTest::test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps` |
 | The score is visible in the list | `SearchJobApplicationsTest::test_the_list_shows_the_ai_score_once_screened`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
+
+## Beyond the brief
+
+Not asked for, added because a real recruiting tool would need them. None of them changes how the required flows work.
+
+| Extra | What it adds |
+|---|---|
+| **Recruiter area behind a login** | Candidates apply without an account; listing and reviewing applications requires signing in. |
+| **Abuse protection** | The apply form accepts 5 valid applications per IP every 15 minutes (`APPLY_RATE_LIMIT`; raise it in `.env.local` for heavy manual testing), answering `429` beyond that; the login allows 5 failed attempts per minute. |
+| **Resilient AI enrichment** | A failing (mocked) LLM is retried 3 times with back-off; then the application shows *AI unavailable* instead of staying pending forever. |
+| **Hiring pipeline** | Statuses with transitions guarded by the domain: one click to advance, an inline confirmation to reject, a stepper showing the stage. |
+| **Overview** | Totals, ongoing analyses, interviews and average score; status tabs with counts; applications per offer for recruiters. |
+| **Pagination** | First/previous/numbered/next/last pages and a page size, all in the URL. |
+| **UI quality** | Dark mode, keyboard and screen-reader friendly, toasts, works without JavaScript (filters fall back to a plain form). |
+| **Enforced architecture** | Deptrac, PHPStan level max and CI on every pull request. |
+
+The reasons behind each one are in the [decision log](docs/PLAN.md); abuse protection is described in [Architecture → Beyond the brief](docs/ARCHITECTURE.md#beyond-the-brief).
 
 ## Architecture in a nutshell
 
@@ -114,4 +131,3 @@ Documented trade-offs, with what would change on the way to production, are list
 - Events are published after the database commit but without a **transactional outbox**: if RabbitMQ is down at that exact moment, the event is lost.
 - Search is case-insensitive but **not accent-insensitive**; emails with non-ASCII characters are rejected.
 - A single **in-memory demo recruiter** account; candidates have no accounts.
-- The apply form accepts **5 valid applications per IP every 15 minutes** (`APPLY_RATE_LIMIT`); raise it in `.env.local` for heavy manual testing.

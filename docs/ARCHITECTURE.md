@@ -19,7 +19,8 @@ This document explains **how the application is organised and why**, compared wi
 11. [Persistence](#persistence)
 12. [Testing strategy](#testing-strategy)
 13. [Enforced, not just drawn](#enforced-not-just-drawn)
-14. [Trade-offs and next steps](#trade-offs-and-next-steps)
+14. [Beyond the brief](#beyond-the-brief)
+15. [Trade-offs and next steps](#trade-offs-and-next-steps)
 
 ## The idea in one sentence
 
@@ -253,7 +254,6 @@ sequenceDiagram
     participant MQ as RabbitMQ
 
     C->>H: POST apply form
-    H->>H: rate limit per client IP (valid submissions only; 429 when exceeded)
     H->>CB: SubmitJobApplicationCommand (id = new UUID v7)
     CB->>CB: begin transaction
     CB->>S: handle
@@ -266,8 +266,6 @@ sequenceDiagram
     CB->>MQ: JobApplicationSubmitted (only now, after commit)
     H-->>C: redirect — AI analysis runs in the background
 ```
-
-**Abuse protection lives at the edge.** Every valid application costs a write and an AI analysis, so the apply form accepts at most `APPLY_RATE_LIMIT` (5) valid submissions per client IP every 15 minutes (sliding window, Symfony RateLimiter); beyond that it answers `429` with `Retry-After` and keeps what the candidate typed. The recruiter login is throttled the same way (5 failed attempts per minute). Neither is a business rule, so neither touches the domain or the use case: another entry point (an API, a CLI) would set its own policy.
 
 ### AI enrichment (asynchronous, in the worker)
 
@@ -389,6 +387,14 @@ Every acceptance criterion of the brief (submission, enrichment, newest-first li
 | Contexts still understand each other's events | Contract tests |
 | Recruiter area requires signing in; candidate pages stay public | Functional tests |
 | All of the above on every pull request | GitHub Actions (`make qa`, `make test` inside Docker) |
+
+## Beyond the brief
+
+The brief asks for the apply → enrich → browse flow; the README lists the extras added on top. The one with an architectural angle is abuse protection.
+
+**Abuse protection lives at the edge.** Every valid application costs a write and an AI analysis, so the apply form accepts at most `APPLY_RATE_LIMIT` (5) valid submissions per client IP every 15 minutes (sliding window, Symfony RateLimiter). Beyond that it answers `429` with `Retry-After` and keeps what the candidate typed; invalid submissions don't count, so a typo never locks a person out. The recruiter login is throttled the same way (5 failed attempts per minute for an email + IP pair).
+
+Neither is a business rule, so neither touches the domain or the use case: the check happens in the HTTP controller before the command is dispatched, and another entry point (an API, a CLI) would set its own policy. A rule such as "one application per email and offer" would be different: that is business, and it would live in the domain.
 
 ## Trade-offs and next steps
 

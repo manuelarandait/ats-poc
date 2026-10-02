@@ -19,7 +19,8 @@ Este documento explica **cómo está organizada la aplicación y por qué**, en 
 11. [Persistencia](#persistencia)
 12. [Estrategia de tests](#estrategia-de-tests)
 13. [Verificado, no solo dibujado](#verificado-no-solo-dibujado)
-14. [Trade-offs y próximos pasos](#trade-offs-y-próximos-pasos)
+14. [Más allá del enunciado](#más-allá-del-enunciado)
+15. [Trade-offs y próximos pasos](#trade-offs-y-próximos-pasos)
 
 ## La idea en una frase
 
@@ -253,7 +254,6 @@ sequenceDiagram
     participant MQ as RabbitMQ
 
     C->>H: POST del formulario
-    H->>H: rate limit por IP del cliente (solo envíos válidos; 429 si se supera)
     H->>CB: SubmitJobApplicationCommand (id = nuevo UUID v7)
     CB->>CB: abre transacción
     CB->>S: handle
@@ -266,8 +266,6 @@ sequenceDiagram
     CB->>MQ: JobApplicationSubmitted (solo ahora, tras el commit)
     H-->>C: redirección — el análisis de IA sigue en segundo plano
 ```
-
-**La protección contra abusos vive en el borde.** Cada candidatura válida cuesta una escritura y un análisis de IA, así que el formulario acepta como máximo `APPLY_RATE_LIMIT` (5) envíos válidos por IP cada 15 minutos (ventana deslizante, Symfony RateLimiter); a partir de ahí responde `429` con `Retry-After` y conserva lo que el candidato había escrito. El login del reclutador se limita igual (5 intentos fallidos por minuto). Ninguno de los dos es una regla de negocio, así que no tocan el dominio ni el caso de uso: otro punto de entrada (una API, la consola) tendría su propia política.
 
 ### Enriquecimiento con IA (asíncrono, en el worker)
 
@@ -389,6 +387,14 @@ Cada criterio de aceptación del enunciado (envío, enriquecimiento, listado de 
 | Los contextos siguen entendiendo los eventos del otro | Tests de contrato |
 | El área de reclutador exige iniciar sesión; las páginas del candidato siguen públicas | Tests funcionales |
 | Todo lo anterior en cada pull request | GitHub Actions (`make qa`, `make test` dentro de Docker) |
+
+## Más allá del enunciado
+
+El enunciado pide el flujo candidatura → enriquecimiento → consulta; el README enumera los extras añadidos encima. El que tiene una lectura de arquitectura es la protección contra abusos.
+
+**La protección contra abusos vive en el borde.** Cada candidatura válida cuesta una escritura y un análisis de IA, así que el formulario acepta como máximo `APPLY_RATE_LIMIT` (5) envíos válidos por IP cada 15 minutos (ventana deslizante, Symfony RateLimiter). A partir de ahí responde `429` con `Retry-After` y conserva lo que el candidato había escrito; los envíos inválidos no cuentan, así que una errata nunca bloquea a una persona. El login del reclutador se limita igual (5 intentos fallidos por minuto para cada email + IP).
+
+Ninguno de los dos es una regla de negocio, así que no tocan el dominio ni el caso de uso: la comprobación se hace en el controlador HTTP antes de despachar el command, y otro punto de entrada (una API, la consola) tendría su propia política. Una regla como "una candidatura por email y oferta" sería distinta: eso es negocio y viviría en el dominio.
 
 ## Trade-offs y próximos pasos
 
