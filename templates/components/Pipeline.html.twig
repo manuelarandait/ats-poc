@@ -1,0 +1,35 @@
+{# Hiring pipeline as a vertical stepper. Usage: <twig:Pipeline :status="application.status" />
+   A rejection can happen at any stage and that stage isn't stored, so a
+   rejected application shows only what is certain: received, then rejected. #}
+{% props status %}
+{% set order = status == 'rejected' ? {received: 0, rejected: 1} : {received: 0, in_review: 1, interviewing: 2, hired: 3} %}
+{% set current = order[status] ?? 0 %}
+<ol {{ attributes.defaults({class: 'text-sm', 'aria-label': 'Hiring pipeline'}) }}>
+    {% for stage, index in order %}
+        {% set state = index < current ? 'done' : (index == current ? 'current' : 'upcoming') %}
+        <li class="relative flex items-center gap-3 {{ loop.last ? '' : 'pb-5' }}"{% if state == 'current' %} aria-current="step"{% endif %}>
+            {% if not loop.last %}
+                <span class="absolute left-2 top-5 bottom-0.5 -ml-px w-0.5 rounded-full {{ state == 'done' ? 'bg-indigo-600 dark:bg-indigo-500' : 'bg-slate-200 dark:bg-slate-800' }}" aria-hidden="true"></span>
+            {% endif %}
+
+            {% if stage == 'rejected' %}
+                <span class="flex size-4 shrink-0 items-center justify-center rounded-full bg-rose-600 text-white dark:bg-rose-500" aria-hidden="true">
+                    <svg class="size-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l6 6M9 3l-6 6"/></svg>
+                </span>
+            {% elseif state == 'done' %}
+                <span class="flex size-4 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white dark:bg-indigo-500" aria-hidden="true">
+                    <svg class="size-2.5" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.5 6.5l2.5 2.5 4.5-6"/></svg>
+                </span>
+            {% elseif state == 'current' %}
+                <span class="size-4 shrink-0 rounded-full border-4 border-indigo-600 bg-white ring-4 ring-indigo-600/15 dark:border-indigo-400 dark:bg-slate-900 dark:ring-indigo-400/20" aria-hidden="true"></span>
+            {% else %}
+                <span class="size-4 shrink-0 rounded-full border-2 border-slate-300 bg-white dark:border-slate-700 dark:bg-slate-900" aria-hidden="true"></span>
+            {% endif %}
+
+            <span class="{{ stage == 'rejected' ? 'font-medium text-rose-700 dark:text-rose-300' : (state == 'current' ? 'font-medium text-slate-900 dark:text-slate-100' : (state == 'done' ? 'text-slate-600 dark:text-slate-300' : 'text-slate-400 dark:text-slate-500')) }}">
+                {{ stage|replace({'_': ' '})|capitalize }}
+                {% if state == 'done' %}<span class="sr-only">(completed)</span>{% elseif state == 'current' %}<span class="sr-only">(current)</span>{% endif %}
+            </span>
+        </li>
+    {% endfor %}
+</ol>
