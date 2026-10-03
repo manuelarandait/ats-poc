@@ -27,7 +27,7 @@ It builds the image, starts the containers, installs dependencies, runs the migr
 | RabbitMQ management | http://localhost:15672 — **guest / guest** |
 | PostgreSQL | `localhost:5433`, database `app`, user **app / app** (tests use a separate `app_test` database) |
 
-`make` lists every available command; `make down` stops everything.
+`make` lists every available command; `make down` stops everything. Day-to-day work (configuration, migrations, the worker, troubleshooting) is in the **[development guide](docs/DEVELOPMENT.md)**.
 
 ## Try it
 
@@ -120,6 +120,8 @@ Full explanation, diagrams and the comparison with a classic Symfony layout: **[
 ## Documentation
 
 - **[Architecture](docs/ARCHITECTURE.md)** ([español](docs/ARCHITECTURE.es.md)) — how the code is organised and why, flows, contracts, reliability, testing strategy, trade-offs.
+- **[Development guide](docs/DEVELOPMENT.md)** ([español](docs/DEVELOPMENT.es.md)) — everyday commands, configuration, database changes, the asynchronous worker, troubleshooting.
+- **[Deploying to production](docs/DEPLOYMENT.md)** ([español](docs/DEPLOYMENT.es.md)) — what a production deployment would need: build, secrets, release steps, workers, scaling.
 - **[Work plan & decision log](docs/PLAN.md)** — the iterations this was built in and the reason behind every decision.
 
 This project was built with an AI coding assistant under an explicit working agreement: the plan, coding standards and architecture rules it followed are versioned in [`CLAUDE.md`](CLAUDE.md) and [`.claude/`](.claude), and every decision was taken by the author and recorded in the decision log.

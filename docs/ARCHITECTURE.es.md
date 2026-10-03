@@ -83,7 +83,9 @@ src/
 │   │   ├── FailJobApplicationScreening/       ← reacciona al fallo de Screening
 │   │   ├── SearchJobApplications/             ← lado de lectura
 │   │   ├── FindJobApplication/                ← lado de lectura
+│   │   ├── FindJobApplicationStats/           ← lado de lectura
 │   │   ├── ListJobOffers/                     ← lado de lectura
+│   │   ├── FindJobOffer/                      ← lado de lectura
 │   │   └── JobApplicationReadModel.php        puerto del lado de lectura
 │   └── Infrastructure/
 │       ├── Http/                       controllers invocables, formulario de envío + DTO de la petición
@@ -98,7 +100,7 @@ src/
 │       └── Messenger/                  listener de "reintentos agotados"
 └── Shared/                             lo mínimo común a todos
     ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, puertos de los buses
-    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, login
+    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, login, extensiones Twig
 ```
 
 ### Domain: el núcleo
@@ -232,9 +234,11 @@ Los **comandos** cambian el estado y no devuelven nada; las **queries** devuelve
 | Comando | `CompleteJobApplicationScreening` | Evento `cv_screened` de Screening | Resumen + score asociados, `JobApplicationScreened` |
 | Comando | `FailJobApplicationScreening` | Evento `cv_screening_failed` de Screening | Screening `failed`, `JobApplicationScreeningFailed` |
 | Subscriber | `ScreenCvOnJobApplicationSubmitted` (Screening) | Evento `submitted` de Recruitment | Llama al puerto de IA y publica `CvScreened` |
-| Query | `SearchJobApplications` | Página de candidaturas | Página de filas: más recientes primero, filtradas por estado / posición, búsqueda por nombre / email |
-| Query | `FindJobApplication` | Página de detalle | Todo, incluidos el CV, los resultados de la IA, las fechas y los siguientes estados permitidos |
-| Query | `ListJobOffers` | Página de envío, filtro por posición | Catálogo de ofertas |
+| Query | `SearchJobApplications` | Página de candidaturas | Página de filas filtradas por estado / posición, búsqueda por nombre / email, ordenadas por cualquier columna (más recientes primero por defecto), cada una con el número de candidaturas de su email |
+| Query | `FindJobApplicationStats` | Página de candidaturas, página de ofertas | Conteos por estado y por oferta, análisis en curso y score medio |
+| Query | `FindJobApplication` | Página de detalle | Todo, incluidos el CV, los resultados de la IA, las fechas, los siguientes estados permitidos y las demás candidaturas del mismo email |
+| Query | `ListJobOffers` | Página de ofertas, filtro por posición | Catálogo de ofertas |
+| Query | `FindJobOffer` | Página de envío, página de confirmación | Una oferta |
 
 Recruitment reacciona a los eventos de Screening **traduciéndolos a comandos propios**: así el cambio pasa por el command bus como cualquier otra escritura (transacción, reglas de negocio, eventos).
 
@@ -318,11 +322,11 @@ sequenceDiagram
     participant RM as Modelo de lectura SQL
     participant DB as PostgreSQL
 
-    H->>QB: SearchJobApplicationsQuery(estado, posición, búsqueda, página)
+    H->>QB: SearchJobApplicationsQuery(estado, posición, búsqueda, orden, página)
     QB->>Q: handle
-    Q->>Q: valida y normaliza los filtros
+    Q->>Q: valida y normaliza filtros y orden (conjunto cerrado de columnas)
     Q->>RM: search(criterios)
-    RM->>DB: SELECT … ORDER BY applied_at DESC (con índices)
+    RM->>DB: SELECT … ORDER BY columna elegida (applied_at DESC por defecto, con índices)
     RM-->>H: JobApplicationPage de DTOs
 ```
 
@@ -359,7 +363,7 @@ body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "
 - **Mapping en XML** dentro de Infrastructure, para que las entidades no lleven atributos del ORM (Doctrine ORM 3 eliminó el mapping en YAML).
 - **Los value objects** se convierten en columnas mediante tipos DBAL propios (`Email`, `FullName`, ids…); `Candidate` y `AiScreening` son embeddables (columnas `candidate_*` y `ai_*`). Doctrine no sabe expresar un embeddable *nulo*, así que un pequeño listener `postLoad` convierte un `AiScreening` con todo a NULL de nuevo en `null`.
 - **Los agregados se referencian por id** (una candidatura guarda `jobOfferId`, no una asociación de Doctrine), así que no hay foreign key entre ellos; la integridad la comprueba el caso de uso.
-- **Índices** para el listado: `(applied_at, id)` para el orden de más reciente a más antigua, `status` y `job_offer_id` para los filtros, e índices GIN `pg_trgm` para la búsqueda "contiene" por nombre o email. Los índices GIN se declaran a Doctrine con un listener de esquema, para que las migraciones nunca intenten borrarlos.
+- **Índices** para el listado: `(applied_at, id)` para el orden de más reciente a más antigua, `status` y `job_offer_id` para los filtros, `candidate_email` para agrupar las candidaturas del mismo email, e índices GIN `pg_trgm` para la búsqueda "contiene" por nombre o email. Los índices GIN se declaran a Doctrine con un listener de esquema, para que las migraciones nunca intenten borrarlos.
 - **Los ids son UUID v7**: los genera quien lanza el comando (los comandos no devuelven nada) y están ordenados por tiempo de forma natural.
 
 ## Estrategia de tests
@@ -390,7 +394,7 @@ Cada criterio de aceptación del enunciado (envío, enriquecimiento, listado de 
 
 ## Más allá del enunciado
 
-El enunciado pide el flujo candidatura → enriquecimiento → consulta; el README enumera los extras añadidos encima. El que tiene una lectura de arquitectura es la protección contra abusos.
+El enunciado pide el flujo candidatura → enriquecimiento → consulta; el README enumera los extras añadidos encima. Dos de ellos tienen una lectura de arquitectura: la protección contra abusos y la agrupación de candidaturas por email.
 
 **La protección contra abusos vive en el borde.** Cada candidatura válida cuesta una escritura y un análisis de IA, así que el formulario acepta como máximo `APPLY_RATE_LIMIT` (5) envíos válidos por IP cada 15 minutos (ventana deslizante, Symfony RateLimiter). A partir de ahí responde `429` con `Retry-After` y conserva lo que el candidato había escrito; los envíos inválidos no cuentan, así que una errata nunca bloquea a una persona. El login del reclutador se limita igual (5 intentos fallidos por minuto para cada email + IP).
 
