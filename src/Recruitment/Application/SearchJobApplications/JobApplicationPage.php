@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace App\Recruitment\Application\SearchJobApplications;
 
+use App\Shared\Domain\Pagination\Pagination;
+
 final readonly class JobApplicationPage
 {
     /**
@@ -11,9 +13,7 @@ final readonly class JobApplicationPage
      */
     public function __construct(
         public array $items,
-        public int $total,
-        public int $page,
-        public int $perPage,
+        public Pagination $pagination,
         public JobApplicationSort $sort = JobApplicationSort::AppliedAt,
         public SortDirection $direction = SortDirection::Desc,
     ) {
@@ -47,15 +47,5 @@ final readonly class JobApplicationPage
     private static function isDefault(JobApplicationSort $sort, SortDirection $direction): bool
     {
         return JobApplicationSort::default() === $sort && $sort->defaultDirection() === $direction;
-    }
-
-    public function pages(): int
-    {
-        return max(1, (int) ceil($this->total / $this->perPage));
-    }
-
-    public function hasNextPage(): bool
-    {
-        return $this->page < $this->pages();
     }
 }

@@ -99,8 +99,8 @@ src/
 │       ├── Ai/                         FakeLlmCvAnalyzer (LLM simulado)
 │       └── Messenger/                  listener de "reintentos agotados"
 └── Shared/                             lo mínimo común a todos
-    ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, puertos de los buses
-    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, login, extensiones Twig
+    ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, paginación, puertos de los buses
+    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, parámetros de paginación, login, extensiones Twig
 ```
 
 ### Domain: el núcleo
@@ -143,7 +143,7 @@ Todo lo que depende de tecnología: controllers HTTP, repositorios de Doctrine y
 |---|---|---|---|
 | **Recruitment** | Ofertas, candidaturas (candidato, CV, estado de contratación, resultado de la IA cuando llega) | `recruitment.job_application.submitted` | `screening.cv_screened`, `screening.cv_screening_failed` |
 | **Screening** | Nada persistente: analiza un CV frente a una posición a través de un puerto de IA | `screening.cv_screened`, `screening.cv_screening_failed` | `recruitment.job_application.submitted` |
-| **Shared** | Solo el shared kernel: clases base de agregados y eventos, `Uuid`, interfaces de los buses | — | — |
+| **Shared** | Solo el shared kernel: clases base de agregados y eventos, `Uuid`, paginación, interfaces de los buses | — | — |
 
 Screening **no guarda estado** a propósito: el resultado que produce pertenece a la candidatura, así que se almacena una sola vez, en Recruitment.
 

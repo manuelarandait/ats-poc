@@ -91,7 +91,7 @@ final class SearchJobApplicationsTest extends KernelTestCase
     {
         JobApplicationFactory::createMany(3);
 
-        self::assertSame(3, $this->search(status: '', jobOfferId: ' ', search: '  ')->total);
+        self::assertSame(3, $this->search(status: '', jobOfferId: ' ', search: '  ')->pagination->total);
     }
 
     public function test_it_paginates_and_reports_the_total(): void
@@ -103,9 +103,21 @@ final class SearchJobApplicationsTest extends KernelTestCase
         $page = $this->search(page: 2, perPage: 2);
 
         self::assertSame(['Candidate 3', 'Candidate 2'], $this->names($page));
-        self::assertSame(5, $page->total);
-        self::assertSame(3, $page->pages());
-        self::assertTrue($page->hasNextPage());
+        self::assertSame(5, $page->pagination->total);
+        self::assertSame(3, $page->pagination->pages());
+        self::assertTrue($page->pagination->hasNextPage());
+    }
+
+    public function test_a_page_past_the_end_returns_the_last_page(): void
+    {
+        foreach (range(1, 5) as $day) {
+            JobApplicationFactory::new()->candidate("Candidate {$day}", "c{$day}@example.com")->appliedAt("2026-09-0{$day} 10:00")->create();
+        }
+
+        $page = $this->search(page: 9, perPage: 2);
+
+        self::assertSame(['Candidate 1'], $this->names($page));
+        self::assertSame(3, $page->pagination->page);
     }
 
     public function test_the_list_shows_the_ai_score_once_screened(): void

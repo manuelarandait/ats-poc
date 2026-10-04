@@ -15,6 +15,14 @@ final readonly class SearchJobApplicationsHandler implements QueryHandler
 
     public function __invoke(SearchJobApplicationsQuery $query): JobApplicationPage
     {
-        return $this->readModel->search(JobApplicationSearchCriteria::fromQuery($query));
+        $criteria = JobApplicationSearchCriteria::fromQuery($query);
+        $page = $this->readModel->search($criteria);
+
+        // A page past the end (e.g. after narrowing the filters) gives the last one instead of nothing.
+        if ($page->pagination->isPastTheEnd()) {
+            return $this->readModel->search($criteria->onPage($page->pagination->pages()));
+        }
+
+        return $page;
     }
 }

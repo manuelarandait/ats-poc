@@ -57,8 +57,8 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
             // Ties (same name, same status…) newest first; UUID v7 is time-ordered: stable final tie-break.
             ->addOrderBy('a.applied_at', 'DESC')
             ->addOrderBy('a.id', 'DESC')
-            ->setFirstResult($criteria->offset())
-            ->setMaxResults($criteria->perPage)
+            ->setFirstResult($criteria->pageRequest->offset())
+            ->setMaxResults($criteria->pageRequest->perPage)
             ->fetchAllAssociative();
 
         return new JobApplicationPage(
@@ -78,9 +78,7 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
                     $row->int('applications_from_email'),
                 );
             }, $rows)),
-            $total,
-            $criteria->page,
-            $criteria->perPage,
+            $criteria->pageRequest->paginate($total),
             $criteria->sort,
             $criteria->direction,
         );

@@ -99,8 +99,8 @@ src/
 │       ├── Ai/                         FakeLlmCvAnalyzer (mocked LLM)
 │       └── Messenger/                  "retries exhausted" listener
 └── Shared/                             the minimum common to all
-    ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, bus ports
-    └── Infrastructure/                 Messenger bus adapters, JSON event serializer, DBAL helpers, login, Twig extensions
+    ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, pagination, bus ports
+    └── Infrastructure/                 Messenger bus adapters, JSON event serializer, DBAL helpers, pagination params, login, Twig extensions
 ```
 
 ### Domain — the core
@@ -143,7 +143,7 @@ Everything technology-specific: HTTP controllers, Doctrine repositories and XML 
 |---|---|---|---|
 | **Recruitment** | Job offers, job applications (candidate, CV, hiring status, AI results once received) | `recruitment.job_application.submitted` | `screening.cv_screened`, `screening.cv_screening_failed` |
 | **Screening** | Nothing persistent: analysing a CV against a position through an AI port | `screening.cv_screened`, `screening.cv_screening_failed` | `recruitment.job_application.submitted` |
-| **Shared** | Shared kernel only: aggregate/event base classes, `Uuid`, bus interfaces | — | — |
+| **Shared** | Shared kernel only: aggregate/event base classes, `Uuid`, pagination, bus interfaces | — | — |
 
 Screening is **stateless** on purpose: the result it produces belongs to the application, so it is stored once, in Recruitment.
 
