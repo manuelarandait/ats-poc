@@ -47,6 +47,7 @@ final class JobApplicationDetailTest extends WebTestCase
         self::assertSelectorTextContains('main', 'Available in October');
         self::assertSelectorTextContains('section[aria-labelledby="ai-title"]', 'Strong PHP profile.');
         self::assertSelectorTextContains('section[aria-labelledby="ai-title"]', '88');
+        self::assertSelectorExists('[role="img"][aria-label="Relevance score 88 out of 100"] circle.stroke-emerald-500');
         self::assertSelectorTextContains('section[aria-labelledby="status-title"]', 'Received');
         self::assertSelectorTextContains('section[aria-labelledby="timeline-title"]', 'Sep 1, 2026 · 10:00 UTC');
         self::assertSelectorTextContains('section[aria-labelledby="timeline-title"]', 'Sep 1, 2026 · 10:01 UTC');

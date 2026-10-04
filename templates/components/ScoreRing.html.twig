@@ -1,0 +1,17 @@
+{#
+    AI relevance score as a ring chart with the number in the middle, coloured
+    by band like the Score badge. Usage: <twig:ScoreRing :score="application.aiScore" />
+#}
+{% props score %}
+{% set strokes = {high: 'stroke-emerald-500', medium: 'stroke-amber-500', low: 'stroke-rose-500'} %}
+{# r = 100/2π: the circumference is 100, so the dash length is the score itself. #}
+<div {{ attributes.defaults({class: 'relative size-24 shrink-0', role: 'img', 'aria-label': 'Relevance score ' ~ score ~ ' out of 100'}) }}>
+    <svg class="size-24 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
+        <circle cx="18" cy="18" r="15.9155" fill="none" stroke-width="3" class="stroke-slate-100 dark:stroke-slate-800"/>
+        <circle cx="18" cy="18" r="15.9155" fill="none" stroke-width="3" stroke-linecap="round" class="{{ strokes[score|score_band] }}" stroke-dasharray="{{ score }} 100"/>
+    </svg>
+    <div class="absolute inset-0 grid place-content-center text-center" aria-hidden="true">
+        <span class="text-2xl font-semibold tabular-nums leading-none">{{ score }}</span>
+        <span class="mt-1 text-xs text-slate-400">score</span>
+    </div>
+</div>
