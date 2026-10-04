@@ -18,7 +18,7 @@ use App\Recruitment\Infrastructure\Http\Form\ApplyType;
 use App\Shared\Domain\Bus\Command\CommandBus;
 use App\Shared\Domain\Bus\Query\QueryBus;
 use App\Shared\Domain\DomainError;
-use App\Shared\Domain\ValueObject\InvalidUuid;
+use Psr\Clock\ClockInterface;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
@@ -31,6 +31,7 @@ use Symfony\Component\RateLimiter\RateLimit;
 use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
+use Symfony\Component\Routing\Requirement\Requirement;
 use Symfony\Component\Uid\Uuid;
 use Twig\Environment;
 
@@ -54,12 +55,13 @@ final readonly class ApplyToJobOfferController
         private FormFactoryInterface $forms,
         private UrlGeneratorInterface $urls,
         private Environment $twig,
+        private ClockInterface $clock,
         #[Autowire(service: 'limiter.job_application')]
         private RateLimiterFactoryInterface $applyLimiter,
     ) {
     }
 
-    #[Route('/jobs/{id}', name: 'jobs_show', methods: ['GET', 'POST'])]
+    #[Route('/jobs/{id}', name: 'jobs_show', requirements: ['id' => Requirement::UUID], methods: ['GET', 'POST'])]
     public function __invoke(string $id, Request $request): Response
     {
         $offer = $this->offer($id);
@@ -85,10 +87,7 @@ final readonly class ApplyToJobOfferController
             }
         }
 
-        return new Response(
-            $this->twig->render('jobs/show.html.twig', ['offer' => $offer, 'form' => $form->createView()]),
-            $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK,
-        );
+        return $this->page($offer, $form, $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK);
     }
 
     /**
@@ -98,22 +97,27 @@ final readonly class ApplyToJobOfferController
      */
     private function tooManyApplications(JobOfferView $offer, FormInterface $form, RateLimit $limit): Response
     {
-        $seconds = max(1, $limit->getRetryAfter()->getTimestamp() - time());
+        $seconds = max(1, $limit->getRetryAfter()->getTimestamp() - $this->clock->now()->getTimestamp());
         $minutes = (int) ceil($seconds / 60);
         $form->addError(new FormError(\sprintf('Too many applications from your network. Please try again in %d %s.', $minutes, 1 === $minutes ? 'minute' : 'minutes')));
 
-        return new Response(
-            $this->twig->render('jobs/show.html.twig', ['offer' => $offer, 'form' => $form->createView()]),
-            Response::HTTP_TOO_MANY_REQUESTS,
-            ['Retry-After' => (string) $seconds],
-        );
+        return $this->page($offer, $form, Response::HTTP_TOO_MANY_REQUESTS, ['Retry-After' => (string) $seconds]);
+    }
+
+    /**
+     * @param FormInterface<ApplyRequest> $form
+     * @param array<string, string>       $headers
+     */
+    private function page(JobOfferView $offer, FormInterface $form, int $status, array $headers = []): Response
+    {
+        return new Response($this->twig->render('jobs/show.html.twig', ['offer' => $offer, 'form' => $form->createView()]), $status, $headers);
     }
 
     private function offer(string $id): JobOfferView
     {
         try {
             return $this->queries->ask(new FindJobOfferQuery($id));
-        } catch (JobOfferNotFound|InvalidUuid $notFound) {
+        } catch (JobOfferNotFound $notFound) {
             throw new NotFoundHttpException('Job offer not found.', $notFound);
         }
     }
