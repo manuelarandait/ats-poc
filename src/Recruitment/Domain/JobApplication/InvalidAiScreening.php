@@ -13,6 +13,11 @@ final class InvalidAiScreening extends DomainError
         return new self(\sprintf('AI score must be between %d and %d, %d given.', $min, $max, $score));
     }
 
+    public static function skillName(int $maxLength): self
+    {
+        return new self(\sprintf('A skill name must have between 1 and %d characters.', $maxLength));
+    }
+
     public static function summaryLength(int $maxLength): self
     {
         return new self(\sprintf('AI summary must have between 1 and %d characters.', $maxLength));

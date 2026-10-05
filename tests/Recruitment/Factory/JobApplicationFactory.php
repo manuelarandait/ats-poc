@@ -15,6 +15,7 @@ use App\Recruitment\Domain\JobApplication\JobApplication;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus as Status;
 use App\Recruitment\Domain\JobApplication\Notes;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Recruitment\Domain\JobOffer\JobOffer;
 use Zenstruck\Foundry\Object\Instantiator;
 use Zenstruck\Foundry\Persistence\PersistentObjectFactory;
@@ -66,10 +67,13 @@ final class JobApplicationFactory extends PersistentObjectFactory
         });
     }
 
-    public function screened(int $score, string $summary = 'AI summary of the CV.'): static
+    /**
+     * @param list<SkillMatch> $skills
+     */
+    public function screened(int $score, string $summary = 'AI summary of the CV.', array $skills = []): static
     {
-        return $this->afterInstantiate(static function (JobApplication $application) use ($score, $summary): void {
-            $application->completeScreening(AiScreening::create($summary, AiScore::fromInt($score)), $application->appliedAt->modify('+1 minute'));
+        return $this->afterInstantiate(static function (JobApplication $application) use ($score, $summary, $skills): void {
+            $application->completeScreening(AiScreening::create($summary, AiScore::fromInt($score), $skills), $application->appliedAt->modify('+1 minute'));
         });
     }
 

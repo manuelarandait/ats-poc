@@ -38,6 +38,11 @@
     [role="button"]:not(:disabled) {
         cursor: pointer;
     }
+
+    /* Collapsible cards draw their own chevron; Safari ignores list-style here. */
+    summary::-webkit-details-marker {
+        display: none;
+    }
 }
 
 /* Reusable component classes: templates use these instead of repeating the

@@ -23,9 +23,10 @@ abstract readonly class DomainEvent
     abstract public static function eventName(): string;
 
     /**
-     * Event-specific data (aggregate id and date travel separately).
+     * Event-specific data (aggregate id and date travel separately): plain
+     * values, or a list of flat records (e.g. a skill-by-skill breakdown).
      *
-     * @return array<string, scalar|null>
+     * @return array<string, scalar|list<array<string, scalar|null>>|null>
      */
     abstract public function toPrimitives(): array;
 }

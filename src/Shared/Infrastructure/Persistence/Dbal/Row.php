@@ -48,6 +48,13 @@ final readonly class Row
         };
     }
 
+    public function bool(string $column): bool
+    {
+        $value = $this->values[$column] ?? null;
+
+        return \is_bool($value) ? $value : throw new \UnexpectedValueException(\sprintf('Column "%s" is not a boolean.', $column));
+    }
+
     public function date(string $column): \DateTimeImmutable
     {
         return $this->nullableDate($column) ?? throw new \UnexpectedValueException(\sprintf('Column "%s" is null.', $column));

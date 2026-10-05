@@ -185,6 +185,7 @@ classDiagram
         <<value object>>
         string summary
         AiScore score (0–100)
+        SkillMatch[] skills
     }
     JobApplication --> Candidate
     JobApplication --> AiScreening
@@ -231,7 +232,7 @@ Rules the aggregate protects: transitions only along the pipeline (final states 
 |---|---|---|---|
 | Command | `SubmitJobApplication` | Candidate (apply form) | Application `received`, screening `pending`, `JobApplicationSubmitted` |
 | Command | `ChangeJobApplicationStatus` | Recruiter | Status moved along the pipeline, `JobApplicationStatusChanged` |
-| Command | `CompleteJobApplicationScreening` | Screening's `cv_screened` event | Summary + score attached, `JobApplicationScreened` |
+| Command | `CompleteJobApplicationScreening` | Screening's `cv_screened` event | Summary, score and skill breakdown attached, `JobApplicationScreened` |
 | Command | `FailJobApplicationScreening` | Screening's `cv_screening_failed` event | Screening `failed`, `JobApplicationScreeningFailed` |
 | Subscriber | `ScreenCvOnJobApplicationSubmitted` (Screening) | Recruitment's `submitted` event | Calls the AI port, publishes `CvScreened` |
 | Query | `SearchJobApplications` | Applications page | Page of rows filtered by status / position, searched by name / email, sorted by any column (newest first by default), each with the number of applications from its email |
@@ -284,7 +285,7 @@ sequenceDiagram
 
     MQ->>SC: recruitment.job_application.submitted (CV + position)
     SC->>AI: analyse(cv, position)
-    AI-->>SC: summary + score
+    AI-->>SC: summary + score + skill breakdown
     SC->>MQ: screening.cv_screened
     MQ->>RC: screening.cv_screened
     RC->>DB: completeScreening(summary, score) — idempotent
@@ -346,6 +347,7 @@ body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "
 - **Consumer-driven contract tests** send every published event through the real serializer and check the consumer's class rebuilds it: a renamed field fails a test, not production.
 - Only events that cross a boundary are routed to RabbitMQ; the rest stay in-process.
 - **Event-carried state transfer**: `JobApplicationSubmitted` carries the CV and the position, so Screening never has to call Recruitment back.
+- **Contracts evolve additively**: `screening.cv_screened` gained a `skills` list (the skill-by-skill breakdown); Recruitment reads a missing list as "no breakdown", so events published before the change are still understood (covered by a contract test).
 
 ## Reliability
 

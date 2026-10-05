@@ -9,6 +9,7 @@ use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\JobApplicationRepository;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobApplication\ScreeningStatus;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Tests\Recruitment\Domain\JobApplication\CandidateMother;
 use App\Tests\Recruitment\Domain\JobApplication\JobApplicationMother;
 use Doctrine\ORM\EntityManagerInterface;
@@ -64,7 +65,8 @@ final class DoctrineJobApplicationRepositoryTest extends KernelTestCase
     public function test_it_persists_the_screening_result_and_status_changes(): void
     {
         $application = JobApplicationMother::persisted();
-        $application->completeScreening(JobApplicationMother::aiScreening(score: 73, summary: 'Solid PHP profile.'), new \DateTimeImmutable('2026-09-02 09:00:00'));
+        $skills = [SkillMatch::create('Symfony', true, true), SkillMatch::create('Kafka', false, false)];
+        $application->completeScreening(JobApplicationMother::aiScreening(score: 73, summary: 'Solid PHP profile.', skills: $skills), new \DateTimeImmutable('2026-09-02 09:00:00'));
         $application->changeStatus(JobApplicationStatus::InReview, new \DateTimeImmutable('2026-09-02 10:00:00'));
 
         $reloaded = $this->saveAndReload($application);
@@ -72,6 +74,7 @@ final class DoctrineJobApplicationRepositoryTest extends KernelTestCase
         self::assertSame(ScreeningStatus::Completed, $reloaded->screeningStatus);
         self::assertSame(73, $reloaded->aiScreening?->score->value);
         self::assertSame('Solid PHP profile.', $reloaded->aiScreening->summary);
+        self::assertEquals($skills, $reloaded->aiScreening->skills);
         self::assertEquals(new \DateTimeImmutable('2026-09-02 09:00:00'), $reloaded->screenedAt);
         self::assertSame(JobApplicationStatus::InReview, $reloaded->status);
         self::assertEquals(new \DateTimeImmutable('2026-09-02 10:00:00'), $reloaded->updatedAt);

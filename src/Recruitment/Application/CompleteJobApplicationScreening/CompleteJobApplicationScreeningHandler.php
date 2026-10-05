@@ -9,6 +9,7 @@ use App\Recruitment\Domain\JobApplication\AiScreening;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\JobApplicationNotFound;
 use App\Recruitment\Domain\JobApplication\JobApplicationRepository;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Shared\Domain\Bus\Command\CommandHandler;
 use App\Shared\Domain\Bus\Event\EventBus;
 use Psr\Clock\ClockInterface;
@@ -28,7 +29,8 @@ final readonly class CompleteJobApplicationScreeningHandler implements CommandHa
         $application = $this->applications->find($id) ?? throw JobApplicationNotFound::withId($id);
 
         // Idempotent in the aggregate: a redelivered result is ignored.
-        $application->completeScreening(AiScreening::create($command->summary, AiScore::fromInt($command->score)), $this->clock->now());
+        $skills = array_map(static fn (array $skill): SkillMatch => SkillMatch::create($skill['skill'], $skill['required'], $skill['matched']), $command->skills);
+        $application->completeScreening(AiScreening::create($command->summary, AiScore::fromInt($command->score), $skills), $this->clock->now());
 
         $this->applications->save($application);
         $this->eventBus->publish(...$application->pullDomainEvents());

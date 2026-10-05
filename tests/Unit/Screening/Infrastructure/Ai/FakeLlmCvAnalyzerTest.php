@@ -6,6 +6,7 @@ namespace App\Tests\Unit\Screening\Infrastructure\Ai;
 
 use App\Screening\Domain\CvAnalysisUnavailable;
 use App\Screening\Domain\Position;
+use App\Screening\Domain\SkillMatch;
 use App\Screening\Infrastructure\Ai\FakeLlmCvAnalyzer;
 use PHPUnit\Framework\TestCase;
 
@@ -52,15 +53,14 @@ final class FakeLlmCvAnalyzerTest extends TestCase
         self::assertEquals($this->analyzer->analyse($cv, $this->backendPosition), $this->analyzer->analyse($cv, $this->backendPosition));
     }
 
-    public function test_the_summary_describes_the_profile_then_the_fit_for_the_position(): void
+    public function test_the_summary_describes_the_candidate_and_the_fit_comes_as_a_skill_breakdown(): void
     {
         $analysis = $this->analyzer->analyse("Backend engineer at Acme\n5 years with PHP and Symfony.", $this->backendPosition);
 
+        self::assertSame('Backend engineer with 5 years of experience. Main skills: PHP, Symfony.', $analysis->summary);
         self::assertSame(
-            'Backend engineer with 5 years of experience. Main skills: PHP, Symfony.'
-            .' Matches 2 of 8 key skills for Senior PHP Backend Engineer: PHP, Symfony.'
-            .' Missing: Doctrine, DDD, RabbitMQ, PostgreSQL, Docker, PHPUnit.',
-            $analysis->summary,
+            ['PHP' => true, 'Symfony' => true, 'Doctrine' => false, 'DDD' => false, 'RabbitMQ' => false, 'PostgreSQL' => false, 'Docker' => false, 'PHPUnit' => false],
+            array_column(array_map(static fn (SkillMatch $skill): array => $skill->toPrimitives(), $analysis->skills), 'matched', 'skill'),
         );
     }
 
@@ -95,7 +95,7 @@ final class FakeLlmCvAnalyzerTest extends TestCase
     {
         $analysis = $this->analyzer->analyse('test', $this->backendPosition);
 
-        self::assertStringStartsWith("The CV gives too little detail to describe the candidate's profile. Matches 0 of 8", $analysis->summary);
+        self::assertSame("The CV gives too little detail to describe the candidate's profile.", $analysis->summary);
     }
 
     public function test_a_cv_with_the_failure_marker_makes_the_llm_unavailable(): void
@@ -124,14 +124,17 @@ final class FakeLlmCvAnalyzerTest extends TestCase
         self::assertSame(53, $missesSymfony->score);
     }
 
-    public function test_the_summary_separates_missing_required_from_missing_nice_to_have(): void
+    public function test_the_breakdown_lists_required_skills_first_then_the_nice_to_have_ones(): void
     {
         $position = new Position('Backend Engineer', "Requirements: PHP, Symfony.\nNice to have: Kafka, Docker.");
 
         $analysis = $this->analyzer->analyse('PHP developer with Docker.', $position);
 
-        self::assertStringContainsString('Matches 2 of 4 key skills for Backend Engineer: PHP, Docker.', $analysis->summary);
-        self::assertStringContainsString('Missing: Symfony.', $analysis->summary);
-        self::assertStringContainsString('Nice to have, missing: Kafka.', $analysis->summary);
+        self::assertEquals([
+            new SkillMatch('PHP', required: true, matched: true),
+            new SkillMatch('Symfony', required: true, matched: false),
+            new SkillMatch('Kafka', required: false, matched: false),
+            new SkillMatch('Docker', required: false, matched: true),
+        ], $analysis->skills);
     }
 }

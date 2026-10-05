@@ -19,6 +19,6 @@ final readonly class CompleteJobApplicationScreeningOnCvScreened implements Doma
 
     public function __invoke(CvScreened $event): void
     {
-        $this->commandBus->dispatch(new CompleteJobApplicationScreeningCommand($event->aggregateId, $event->summary, $event->score));
+        $this->commandBus->dispatch(new CompleteJobApplicationScreeningCommand($event->aggregateId, $event->summary, $event->score, $event->skills));
     }
 }

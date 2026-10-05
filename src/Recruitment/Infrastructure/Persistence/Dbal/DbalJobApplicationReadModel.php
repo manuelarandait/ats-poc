@@ -6,6 +6,7 @@ namespace App\Recruitment\Infrastructure\Persistence\Dbal;
 
 use App\Recruitment\Application\FindJobApplication\JobApplicationDetails;
 use App\Recruitment\Application\FindJobApplication\OtherApplication;
+use App\Recruitment\Application\FindJobApplication\ScreenedSkill;
 use App\Recruitment\Application\FindJobApplicationStats\JobApplicationStats;
 use App\Recruitment\Application\JobApplicationReadModel;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationPage;
@@ -87,7 +88,7 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
     public function find(JobApplicationId $id): ?JobApplicationDetails
     {
         $values = $this->connection->createQueryBuilder()
-            ->select('a.*', 'o.title AS position_title')
+            ->select('a.*', 'o.title AS position_title', 'o.description AS position_description')
             ->from('job_application', 'a')
             ->innerJoin('a', 'job_offer', 'o', 'o.id = a.job_offer_id')
             ->where('a.id = :id')
@@ -107,17 +108,38 @@ final readonly class DbalJobApplicationReadModel implements JobApplicationReadMo
             $row->nullableString('candidate_phone'),
             $row->string('job_offer_id'),
             $row->string('position_title'),
+            $row->string('position_description'),
             $row->string('cv'),
             $row->nullableString('notes'),
             $row->string('status'),
             $row->string('screening_status'),
             $row->nullableString('ai_summary'),
             $row->nullableInt('ai_score'),
+            $this->screenedSkills($row->nullableString('ai_skills')),
             $row->date('applied_at'),
             $row->nullableDate('screened_at'),
             $row->date('updated_at'),
             $this->otherApplications($id, $row->string('candidate_email')),
         );
+    }
+
+    /**
+     * Required skills first, each group in the order the AI listed them.
+     *
+     * @return list<ScreenedSkill>
+     */
+    private function screenedSkills(?string $json): array
+    {
+        $skills = array_values(array_map(static function (mixed $values): ScreenedSkill {
+            $values = \is_array($values) ? $values : [];
+            $row = new Row(['skill' => $values['skill'] ?? null, 'required' => $values['required'] ?? null, 'matched' => $values['matched'] ?? null]);
+
+            return new ScreenedSkill($row->string('skill'), $row->bool('required'), $row->bool('matched'));
+        }, null === $json ? [] : (array) json_decode($json, true, 512, \JSON_THROW_ON_ERROR)));
+
+        usort($skills, static fn (ScreenedSkill $a, ScreenedSkill $b): int => $b->required <=> $a->required);
+
+        return $skills;
     }
 
     /**

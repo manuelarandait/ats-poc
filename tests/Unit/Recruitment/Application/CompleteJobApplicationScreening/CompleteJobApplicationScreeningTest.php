@@ -12,6 +12,7 @@ use App\Recruitment\Domain\JobApplication\Event\JobApplicationScreened;
 use App\Recruitment\Domain\JobApplication\JobApplication;
 use App\Recruitment\Domain\JobApplication\JobApplicationNotFound;
 use App\Recruitment\Domain\JobApplication\ScreeningStatus;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Tests\Recruitment\Domain\JobApplication\JobApplicationMother;
 use App\Tests\Recruitment\Infrastructure\InMemoryJobApplicationRepository;
 use App\Tests\Shared\Infrastructure\SpyCommandBus;
@@ -42,9 +43,11 @@ final class CompleteJobApplicationScreeningTest extends TestCase
     {
         $commandBus = new SpyCommandBus();
 
-        new CompleteJobApplicationScreeningOnCvScreened($commandBus)(new CvScreened('some-id', 'Great fit.', 90, new \DateTimeImmutable(self::NOW)));
+        $skills = [['skill' => 'Symfony', 'required' => true, 'matched' => true]];
 
-        self::assertEquals([new CompleteJobApplicationScreeningCommand('some-id', 'Great fit.', 90)], $commandBus->dispatched);
+        new CompleteJobApplicationScreeningOnCvScreened($commandBus)(new CvScreened('some-id', 'Great fit.', 90, $skills, new \DateTimeImmutable(self::NOW)));
+
+        self::assertEquals([new CompleteJobApplicationScreeningCommand('some-id', 'Great fit.', 90, $skills)], $commandBus->dispatched);
     }
 
     public function test_it_attaches_summary_and_score_to_the_application(): void
@@ -57,6 +60,19 @@ final class CompleteJobApplicationScreeningTest extends TestCase
         self::assertEquals(
             [new JobApplicationScreened($this->application->id->value, 90, new \DateTimeImmutable(self::NOW))],
             $this->eventBus->published,
+        );
+    }
+
+    public function test_it_keeps_the_skill_breakdown(): void
+    {
+        ($this->handler)(new CompleteJobApplicationScreeningCommand($this->application->id->value, 'Great fit.', 90, [
+            ['skill' => 'Symfony', 'required' => true, 'matched' => true],
+            ['skill' => 'Kafka', 'required' => false, 'matched' => false],
+        ]));
+
+        self::assertEquals(
+            [SkillMatch::create('Symfony', true, true), SkillMatch::create('Kafka', false, false)],
+            $this->application->aiScreening?->skills,
         );
     }
 

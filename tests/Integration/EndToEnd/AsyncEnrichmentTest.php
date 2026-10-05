@@ -9,6 +9,7 @@ use App\Recruitment\Domain\JobApplication\JobApplication;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\JobApplicationRepository;
 use App\Recruitment\Domain\JobApplication\ScreeningStatus;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Recruitment\Domain\JobOffer\JobOfferRepository;
 use App\Screening\Infrastructure\Ai\FakeLlmCvAnalyzer;
 use App\Shared\Domain\Bus\Command\CommandBus;
@@ -49,7 +50,8 @@ final class AsyncEnrichmentTest extends KernelTestCase
         $application = $this->application();
         self::assertSame(ScreeningStatus::Completed, $application->screeningStatus);
         self::assertNotNull($application->aiScreening);
-        self::assertStringContainsString('Matches 4 of 4 key skills for Senior PHP Backend Engineer', $application->aiScreening->summary);
+        self::assertSame('Backend engineer with 7 years of experience. Main skills: PHP, Symfony, DDD, RabbitMQ.', $application->aiScreening->summary);
+        self::assertSame(['PHP', 'Symfony', 'DDD', 'RabbitMQ'], array_map(static fn (SkillMatch $skill): string => $skill->skill, array_filter($application->aiScreening->skills, static fn (SkillMatch $skill): bool => $skill->matched)));
         self::assertSame(98, $application->aiScreening->score->value); // 80 × 4/4 + 20 × 7/8
         self::assertNotNull($application->screenedAt);
     }

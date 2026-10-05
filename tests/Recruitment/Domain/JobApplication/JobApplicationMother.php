@@ -11,6 +11,7 @@ use App\Recruitment\Domain\JobApplication\CvText;
 use App\Recruitment\Domain\JobApplication\JobApplication;
 use App\Recruitment\Domain\JobApplication\JobApplicationId;
 use App\Recruitment\Domain\JobApplication\Notes;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Recruitment\Domain\JobOffer\JobOffer;
 use App\Tests\Recruitment\Domain\JobOffer\JobOfferMother;
 use App\Tests\Shared\Domain\MotherCreator;
@@ -47,9 +48,12 @@ final class JobApplicationMother
         return $application;
     }
 
-    public static function aiScreening(int $score = 80, string $summary = 'Backend engineer with 6 years of PHP.'): AiScreening
+    /**
+     * @param list<SkillMatch> $skills
+     */
+    public static function aiScreening(int $score = 80, string $summary = 'Backend engineer with 6 years of PHP.', array $skills = []): AiScreening
     {
-        return AiScreening::create($summary, AiScore::fromInt($score));
+        return AiScreening::create($summary, AiScore::fromInt($score), $skills);
     }
 
     public static function id(): JobApplicationId

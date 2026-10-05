@@ -45,7 +45,9 @@ final class ApplicationJourneyTest extends WebTestCase
         $client->clickLink('Open in the recruiter area');
         self::assertResponseIsSuccessful();
         self::assertSelectorTextContains('h1', 'Jane Doe');
-        self::assertSelectorTextContains('section[aria-labelledby="ai-title"]', 'Matches 4 of 4 key skills for Senior PHP Backend Engineer');
+        self::assertSelectorTextContains('section[aria-labelledby="ai-title"]', 'Backend engineer with 7 years of experience.');
+        self::assertSelectorTextContains('section[aria-labelledby="ai-title"]', 'Required 4 of 4 in the CV');
+        self::assertSelectorTextContains('section[aria-labelledby="position-title"]', 'PHP, Symfony, DDD and RabbitMQ.');
         self::assertSelectorExists('[role="img"][aria-label="Relevance score 98 out of 100"]'); // 80 × 4/4 + 20 × 7/8
         self::assertSelectorNotExists('[data-controller="poll"]');
 

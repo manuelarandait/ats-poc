@@ -7,6 +7,7 @@ namespace App\Screening\Application\ScreenCv;
 use App\Screening\Domain\CvAnalyzer;
 use App\Screening\Domain\Event\CvScreened;
 use App\Screening\Domain\Position;
+use App\Screening\Domain\SkillMatch;
 use App\Shared\Domain\Bus\Event\DomainEventSubscriber;
 use App\Shared\Domain\Bus\Event\EventBus;
 use Psr\Clock\ClockInterface;
@@ -29,6 +30,12 @@ final readonly class ScreenCvOnJobApplicationSubmitted implements DomainEventSub
     {
         $analysis = $this->analyzer->analyse($event->cv, new Position($event->positionTitle, $event->positionDescription));
 
-        $this->eventBus->publish(new CvScreened($event->aggregateId, $analysis->summary, $analysis->score, $this->clock->now()));
+        $this->eventBus->publish(new CvScreened(
+            $event->aggregateId,
+            $analysis->summary,
+            $analysis->score,
+            array_map(static fn (SkillMatch $skill): array => $skill->toPrimitives(), $analysis->skills),
+            $this->clock->now(),
+        ));
     }
 }

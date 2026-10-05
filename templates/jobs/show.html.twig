@@ -10,34 +10,7 @@
         <article class="lg:sticky lg:top-6 lg:col-span-2 lg:self-start">
             <h1 class="text-2xl font-semibold">{{ offer.title }}</h1>
             {# Paragraphs like "Requirements: a, b, c." become a titled list; "Nice to have" a set of tags. #}
-            <div class="mt-4 space-y-5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">
-                {% for paragraph in offer.description|split("\n\n")|map(p => p|trim)|filter(p => p is not empty) %}
-                    {% if paragraph matches '/^[A-Z][A-Za-z ]{2,30}: /' %}
-                        {% set label = paragraph|split(': ', 2)|first %}
-                        {% set items = paragraph|split(': ', 2)|last|trim('.')|split(', ') %}
-                        <section>
-                            <h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">{{ label }}</h2>
-                            {% if 'nice' in label|lower %}
-                                <ul class="mt-2 flex flex-wrap gap-2">
-                                    {% for item in items %}
-                                        <li class="badge bg-slate-100 text-slate-700 ring-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:ring-slate-700">{{ item|first|upper ~ item|slice(1) }}</li>
-                                    {% endfor %}
-                                </ul>
-                            {% else %}
-                                <ul class="mt-2 space-y-1.5">
-                                    {% for item in items %}
-                                        <li class="flex gap-2"><twig:Icon name="check" class="mt-0.5 size-4 text-indigo-600 dark:text-indigo-400" />{{ item|first|upper ~ item|slice(1) }}</li>
-                                    {% endfor %}
-                                </ul>
-                            {% endif %}
-                        </section>
-                    {% elseif loop.first %}
-                        <p class="text-base text-slate-900 dark:text-slate-100">{{ paragraph }}</p>
-                    {% else %}
-                        <p>{{ paragraph }}</p>
-                    {% endif %}
-                {% endfor %}
-            </div>
+            <twig:JobDescription :description="offer.description" class="mt-4" />
         </article>
 
         <section class="card p-6 lg:col-span-3" aria-labelledby="apply-title">

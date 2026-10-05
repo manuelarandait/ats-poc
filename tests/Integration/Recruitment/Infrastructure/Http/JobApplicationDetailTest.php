@@ -7,11 +7,13 @@ namespace App\Tests\Integration\Recruitment\Infrastructure\Http;
 use App\Recruitment\Domain\JobApplication\CvText;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobApplication\Notes;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Tests\Recruitment\Factory\JobApplicationFactory;
 use App\Tests\Recruitment\Factory\JobOfferFactory;
 use App\Tests\Shared\Infrastructure\Security\RecruiterLogin;
 use Symfony\Bundle\FrameworkBundle\KernelBrowser;
 use Symfony\Bundle\FrameworkBundle\Test\WebTestCase;
+use Symfony\Component\DomCrawler\Crawler;
 
 /**
  * Detail page: candidate data, pasted CV, AI summary + score, status and
@@ -52,6 +54,40 @@ final class JobApplicationDetailTest extends WebTestCase
         self::assertSelectorTextContains('section[aria-labelledby="timeline-title"]', 'Sep 1, 2026 · 10:00 UTC');
         self::assertSelectorTextContains('section[aria-labelledby="timeline-title"]', 'Sep 1, 2026 · 10:01 UTC');
         self::assertSelectorNotExists('[data-controller="poll"]');
+    }
+
+    public function test_the_screening_shows_skill_by_skill_what_the_cv_covers_next_to_the_offer(): void
+    {
+        $offer = JobOfferFactory::createOne(['title' => 'Senior PHP Developer', 'description' => "Build our backend.\n\nRequirements: PHP, Symfony.\n\nNice to have: Kafka."]);
+        $application = JobApplicationFactory::new()->forOffer($offer)->screened(70, 'Backend engineer.', [
+            SkillMatch::create('PHP', true, true),
+            SkillMatch::create('Symfony', true, false),
+            SkillMatch::create('Kafka', false, false),
+        ])->create();
+
+        $crawler = $this->client->request('GET', '/applications/'.$application->id->value);
+
+        $chips = $crawler->filter('section[aria-labelledby="ai-title"] li')->each(static fn (Crawler $chip): string => trim($chip->text()));
+        self::assertSame(['PHP: in the CV', 'Symfony: missing', 'Kafka: missing'], $chips);
+        self::assertSelectorTextContains('section[aria-labelledby="ai-title"]', 'Required 1 of 2 in the CV');
+        self::assertSelectorTextContains('section[aria-labelledby="position-title"]', 'Senior PHP Developer');
+        self::assertSelectorTextContains('section[aria-labelledby="position-title"]', 'Build our backend.');
+        self::assertSelectorTextContains('section[aria-labelledby="position-title"] h3', 'Requirements');
+        self::assertSelectorNotExists('section[aria-labelledby="position-title"] details[open]', 'The offer starts folded: the chips sum it up.');
+        self::assertSelectorExists('section[aria-labelledby="cv-title"] details[open]');
+        // Kept as they are when Turbo re-renders this page (status change, polling), not when opening another application.
+        self::assertSelectorExists(\sprintf('details#position-%s[data-turbo-permanent]', $application->id->value));
+        self::assertSelectorExists(\sprintf('details#cv-%s[data-turbo-permanent]', $application->id->value));
+    }
+
+    public function test_an_analysis_made_before_the_skill_breakdown_existed_shows_only_the_summary(): void
+    {
+        $application = JobApplicationFactory::new()->screened(70, 'Backend engineer.')->create();
+
+        $this->client->request('GET', '/applications/'.$application->id->value);
+
+        self::assertSelectorTextContains('section[aria-labelledby="ai-title"]', 'Backend engineer.');
+        self::assertSelectorNotExists('section[aria-labelledby="ai-title"] li');
     }
 
     public function test_while_the_ai_is_analysing_the_page_refreshes_itself(): void

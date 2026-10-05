@@ -7,11 +7,28 @@ namespace App\Tests\Unit\Recruitment\Domain\JobApplication;
 use App\Recruitment\Domain\JobApplication\AiScore;
 use App\Recruitment\Domain\JobApplication\AiScreening;
 use App\Recruitment\Domain\JobApplication\InvalidAiScreening;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class AiScreeningTest extends TestCase
 {
+    public function test_a_skill_name_is_trimmed_and_cannot_be_blank(): void
+    {
+        self::assertSame('Symfony', SkillMatch::create('  Symfony ', true, true)->skill);
+
+        $this->expectException(InvalidAiScreening::class);
+
+        SkillMatch::create('   ', true, false);
+    }
+
+    public function test_it_keeps_the_skill_breakdown(): void
+    {
+        $skills = [SkillMatch::create('PHP', true, true), SkillMatch::create('Kafka', false, false)];
+
+        self::assertSame($skills, AiScreening::create('Backend engineer.', AiScore::fromInt(70), $skills)->skills);
+    }
+
     #[DataProvider('boundaryScores')]
     public function test_it_accepts_scores_within_range(int $score): void
     {

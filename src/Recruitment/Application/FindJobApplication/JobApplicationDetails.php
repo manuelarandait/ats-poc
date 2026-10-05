@@ -12,6 +12,7 @@ use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 final readonly class JobApplicationDetails
 {
     /**
+     * @param list<ScreenedSkill>    $aiSkills          what the position asks for, required first, and whether the CV shows it
      * @param list<OtherApplication> $otherApplications from the same email, newest first
      */
     public function __construct(
@@ -21,17 +22,35 @@ final readonly class JobApplicationDetails
         public ?string $candidatePhone,
         public string $jobOfferId,
         public string $positionTitle,
+        public string $positionDescription,
         public string $cv,
         public ?string $notes,
         public string $status,
         public string $screeningStatus,
         public ?string $aiSummary,
         public ?int $aiScore,
+        public array $aiSkills,
         public \DateTimeImmutable $appliedAt,
         public ?\DateTimeImmutable $screenedAt,
         public \DateTimeImmutable $updatedAt,
         public array $otherApplications = [],
     ) {
+    }
+
+    /**
+     * @return list<ScreenedSkill>
+     */
+    public function requiredSkills(): array
+    {
+        return array_values(array_filter($this->aiSkills, static fn (ScreenedSkill $skill): bool => $skill->required));
+    }
+
+    /**
+     * @return list<ScreenedSkill>
+     */
+    public function niceToHaveSkills(): array
+    {
+        return array_values(array_filter($this->aiSkills, static fn (ScreenedSkill $skill): bool => !$skill->required));
     }
 
     /**

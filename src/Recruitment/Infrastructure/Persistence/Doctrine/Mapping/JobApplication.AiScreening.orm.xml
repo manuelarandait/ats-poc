@@ -6,5 +6,6 @@
     <embeddable name="App\Recruitment\Domain\JobApplication\AiScreening">
         <field name="summary" type="text" nullable="true"/>
         <field name="score" type="ai_score" nullable="true"/>
+        <field name="skills" type="skill_matches" nullable="true"/>
     </embeddable>
 </doctrine-mapping>

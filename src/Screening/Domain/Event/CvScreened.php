@@ -12,10 +12,14 @@ use App\Shared\Domain\DomainEvent;
  */
 final readonly class CvScreened extends DomainEvent
 {
+    /**
+     * @param list<array{skill: string, required: bool, matched: bool}> $skills
+     */
     public function __construct(
         string $aggregateId,
         public string $summary,
         public int $score,
+        public array $skills,
         \DateTimeImmutable $occurredOn,
     ) {
         parent::__construct($aggregateId, $occurredOn);
@@ -28,6 +32,6 @@ final readonly class CvScreened extends DomainEvent
 
     public function toPrimitives(): array
     {
-        return ['summary' => $this->summary, 'score' => $this->score];
+        return ['summary' => $this->summary, 'score' => $this->score, 'skills' => $this->skills];
     }
 }
