@@ -6,9 +6,9 @@ Built with **Symfony 8.1 / PHP 8.4** following **DDD + Hexagonal architecture + 
 
 | Open positions | Apply (dark mode) |
 |---|---|
-| ![Open positions](docs/screenshots/jobs-light.jpg) | ![Apply page](docs/screenshots/apply-dark.jpg) |
+| ![Open positions](docs/screenshots/jobs.jpg) | ![Apply page](docs/screenshots/apply-dark.jpg) |
 | **Applications (recruiter)** | **Application detail (dark mode)** |
-| ![Applications list](docs/screenshots/applications-light.jpg) | ![Application detail](docs/screenshots/application-detail-dark.jpg) |
+| ![Applications list](docs/screenshots/applications.jpg) | ![Application detail](docs/screenshots/application-detail-dark.jpg) |
 
 ## Quick start
 
