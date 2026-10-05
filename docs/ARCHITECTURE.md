@@ -445,3 +445,6 @@ What would change on the way to production:
 - **A real user store** (users table or SSO) instead of the in-memory demo recruiter account.
 - **A `Candidate` aggregate, once the email is verified** (a confirmation link, or candidate accounts): its own id and table, applications referencing it by id, a unique email, a migration that merges today's duplicates, and a way for recruiters to merge or split profiles by hand. Until then, grouping stays on the read side (see [Beyond the brief](#beyond-the-brief)).
 - **Rate limiting across instances**: the counters live in the app cache, so several app instances would share them through Redis, and behind a load balancer `trusted_proxies` must be set so the client IP is the real one.
+- **Shared sessions**: they are files on each instance by default, so with several instances they would move to Redis or the database, or recruiters would be logged out whenever the load balancer switches instance.
+- **Deploying the worker**: it is a long-running process, so every release restarts it (`messenger:stop-workers`, the process manager starts it again) to run the new code, and migrations must stay compatible with the version still running during the rollout.
+- **Watching the failure transport**: a message there means an analysis failed after its retries; alert when it isn't empty and replay with `messenger:failed:retry`.

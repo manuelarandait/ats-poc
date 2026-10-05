@@ -507,4 +507,7 @@ Qué cambiaría de cara a producción:
 - **Un almacén de usuarios real** (tabla de usuarios o SSO) en lugar de la cuenta de reclutador de demo en memoria.
 - **Un agregado** `Candidate`**, una vez verificado el email** (un enlace de confirmación o cuentas de candidato): con su id y su tabla, las candidaturas referenciándolo por id, email único, una migración que fusione los duplicados actuales y una forma de que el reclutador fusione o separe perfiles a mano. Hasta entonces, la agrupación se queda en el lado de lectura (ver [Más allá del enunciado](#más-allá-del-enunciado)).
 - **Rate limiting entre instancias**: los contadores viven en la caché de la aplicación, así que con varias instancias se compartirían en Redis, y detrás de un balanceador habría que configurar `trusted_proxies` para que la IP del cliente sea la real.
+- **Sesiones compartidas**: por defecto son ficheros en cada instancia, así que con varias instancias pasarían a Redis o a la base de datos; si no, el reclutador perdería la sesión cada vez que el balanceador cambie de instancia.
+- **Desplegar el worker**: es un proceso de larga duración, así que cada despliegue lo reinicia (`messenger:stop-workers`, y el gestor de procesos lo vuelve a arrancar) para que ejecute el código nuevo, y las migraciones tienen que ser compatibles con la versión que sigue corriendo durante el despliegue.
+- **Vigilar el transporte de fallidos**: un mensaje ahí significa que un análisis falló tras sus reintentos; hay que alertar cuando no esté vacío y reintentarlo con `messenger:failed:retry`.
 
