@@ -4,6 +4,17 @@
 
 Cómo está organizada la aplicación y por qué. El motivo de cada decisión concreta está en el [registro de decisiones](PLAN.md#decision-log) (en inglés).
 
+## Índice
+
+1. [Visión general](#visión-general)
+2. [Capas y contextos](#capas-y-contextos)
+3. [Dominio](#dominio)
+4. [Flujo principal](#flujo-principal)
+5. [Eventos y fiabilidad](#eventos-y-fiabilidad)
+6. [Estrategia de tests](#estrategia-de-tests)
+7. [Más allá del enunciado](#más-allá-del-enunciado)
+8. [Trade-offs y próximos pasos](#trade-offs-y-próximos-pasos)
+
 ## Visión general
 
 En una app Symfony clásica el framework está en el centro y las reglas de negocio se reparten dentro de él. Aquí es al revés: **las reglas de negocio están en el centro, en PHP puro, y Symfony, Doctrine y RabbitMQ son enchufes en el borde**. Las dependencias solo apuntan hacia dentro, y **Deptrac** rompe la build si no; PHPStan (nivel max), PHP-CS-Fixer y los tests se ejecutan en la CI en cada pull request.

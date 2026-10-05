@@ -4,6 +4,17 @@
 
 How the application is organised and why. The reason behind each individual choice is in the [decision log](PLAN.md#decision-log).
 
+## Contents
+
+1. [Overview](#overview)
+2. [Layers and contexts](#layers-and-contexts)
+3. [Domain](#domain)
+4. [Main flow](#main-flow)
+5. [Events and reliability](#events-and-reliability)
+6. [Testing strategy](#testing-strategy)
+7. [Beyond the brief](#beyond-the-brief)
+8. [Trade-offs and next steps](#trade-offs-and-next-steps)
+
 ## Overview
 
 In a classic Symfony app the framework sits in the centre and business rules are spread inside it. Here it is inverted: **business rules sit in the centre, in plain PHP, and Symfony, Doctrine and RabbitMQ are plugs at the edge**. Dependencies only point inwards, and **Deptrac** fails the build otherwise; PHPStan (level max), PHP-CS-Fixer and the tests run in CI on every pull request.
