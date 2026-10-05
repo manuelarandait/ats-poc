@@ -19,8 +19,11 @@ services:
       - "8080:8080"
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8080/health"]
-      interval: 3s
-      retries: 20
+      # Every 2 s while starting (make init waits for it), then every 30 s so
+      # the check doesn't flood the logs.
+      start_period: 60s
+      start_interval: 2s
+      interval: 30s
 
   worker:
     <<: *php
