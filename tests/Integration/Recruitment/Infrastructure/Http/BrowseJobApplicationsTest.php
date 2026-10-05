@@ -93,6 +93,89 @@ final class BrowseJobApplicationsTest extends WebTestCase
         self::assertSelectorNotExists('[data-controller="poll"]');
     }
 
+    public function test_status_tabs_count_what_the_search_and_position_filters_cover(): void
+    {
+        $php = JobOfferFactory::createOne(['title' => 'PHP Developer']);
+        JobApplicationFactory::new()->forOffer($php)->many(2)->create();
+        JobApplicationFactory::new()->forOffer($php)->inStatus(JobApplicationStatus::InReview)->create();
+        JobApplicationFactory::new()->inStatus(JobApplicationStatus::InReview)->create(); // another offer
+
+        $crawler = $this->client->request('GET', '/applications?status=in_review&position='.$php->id->value);
+
+        self::assertSame(
+            ['All 3', 'Received 2', 'In review 1', 'Interviewing 0', 'Hired 0', 'Rejected 0'],
+            $crawler->filter('fieldset label')->each(static fn (Crawler $tab): string => $tab->text()),
+            'The counts ignore the selected status: the tabs are the status.',
+        );
+        self::assertSame('in_review', $crawler->filter('fieldset input[checked]')->attr('value'));
+        // The tabs live inside the results frame but belong to the filters form.
+        self::assertSame('applications-filters', $crawler->filter('fieldset input')->attr('form'));
+    }
+
+    public function test_the_overview_shows_totals_ongoing_analyses_and_the_average_score(): void
+    {
+        JobApplicationFactory::new()->screened(80)->create();
+        JobApplicationFactory::new()->screened(60)->create();
+        JobApplicationFactory::new()->inStatus(JobApplicationStatus::Interviewing)->screened(70)->create();
+        JobApplicationFactory::createOne(); // still being analysed
+
+        $crawler = $this->client->request('GET', '/applications');
+
+        $kpis = [];
+        $crawler->filter('turbo-frame dl > div')->each(static function (Crawler $kpi) use (&$kpis): void {
+            $kpis[$kpi->filter('dt')->text()] = $kpi->filter('dd')->text();
+        });
+        self::assertSame([
+            'Applications' => '4',
+            'AI analysing now' => '1',
+            'Interviewing' => '1',
+            'Average AI score' => '70 / 100',
+        ], $kpis);
+    }
+
+    public function test_column_headers_sort_the_list_and_keep_the_filters(): void
+    {
+        JobApplicationFactory::new()->screened(40)->many(11)->create();
+        JobApplicationFactory::new()->candidate('Top Candidate', 'top@example.com')->screened(95)->create();
+
+        $crawler = $this->client->request('GET', '/applications?status=received&sort=score&dir=desc&perPage=10');
+
+        self::assertSame('Top Candidate', $this->names($crawler)[0]);
+        self::assertSame('descending', $crawler->filter('th:contains("AI score")')->attr('aria-sort'));
+        self::assertCount(1, $crawler->filter('th[aria-sort]'), 'Only the sorted column is announced as sorted.');
+        // Clicking the sorted column flips it; another column starts in its natural direction; back to newest first drops the sort from the URL.
+        self::assertSame('/applications?status=received&perPage=10&sort=score&dir=asc', $crawler->filter('th:contains("AI score") a')->attr('href'));
+        self::assertSame('/applications?status=received&perPage=10&sort=candidate&dir=asc', $crawler->filter('th:contains("Candidate") a')->attr('href'));
+        self::assertSame('/applications?status=received&perPage=10', $crawler->filter('th:contains("Applied") a')->attr('href'));
+        // Paging keeps the order, and the filters form carries it so typing keeps it too.
+        self::assertSame('/applications?status=received&sort=score&dir=desc&perPage=10&page=2', $crawler->filter('a[aria-label="Next page"]')->attr('href'));
+        self::assertSame('score', $crawler->filter('input[type="hidden"][name="sort"][form="applications-filters"]')->attr('value'));
+    }
+
+    public function test_the_applied_column_shows_the_date_and_how_long_ago(): void
+    {
+        JobApplicationFactory::new()->appliedAt('2026-09-01 10:00:00')->create();
+
+        $crawler = $this->client->request('GET', '/applications');
+
+        self::assertStringContainsString('Sep 1, 2026 · 10:00', $crawler->filter('tbody tr td')->last()->text());
+        self::assertStringContainsString('ago', $crawler->filter('tbody tr td')->last()->text());
+        self::assertSame('descending', $crawler->filter('th:contains("Applied")')->attr('aria-sort'), 'Newest first is the default order.');
+    }
+
+    public function test_a_candidate_with_several_applications_links_to_all_of_them(): void
+    {
+        JobApplicationFactory::new()->candidate('Jane Doe', 'jane@example.com')->many(3)->create();
+        JobApplicationFactory::new()->candidate('John Smith', 'john@example.com')->create();
+
+        $crawler = $this->client->request('GET', '/applications');
+
+        $links = $crawler->filter('a[title="Show every application from this email"]');
+        self::assertCount(3, $links, 'One per row of Jane, none for John.');
+        self::assertSame('3 applications', trim($links->first()->text()));
+        self::assertSame('/applications?q=jane@example.com', $links->first()->attr('href'));
+    }
+
     public function test_an_invalid_filter_is_a_bad_request(): void
     {
         $this->client->request('GET', '/applications?status=on_hold');

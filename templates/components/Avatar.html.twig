@@ -1,0 +1,14 @@
+{# Candidate initials on a soft tone that is stable per name. Decorative: the
+   name is always written next to it. Tones avoid the semantic status/score
+   hues so an avatar never reads as a state.
+   Usage: <twig:Avatar :name="item.candidateName" size="lg" /> #}
+{% props name, size = 'md' %}
+{% set tones = [
+    'bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200',
+    'bg-cyan-100 text-cyan-800 dark:bg-cyan-500/20 dark:text-cyan-200',
+    'bg-fuchsia-100 text-fuchsia-700 dark:bg-fuchsia-500/20 dark:text-fuchsia-200',
+    'bg-orange-100 text-orange-800 dark:bg-orange-500/20 dark:text-orange-200',
+    'bg-teal-100 text-teal-800 dark:bg-teal-500/20 dark:text-teal-200',
+] %}
+{% set sizes = {md: 'size-9 text-xs', lg: 'size-14 text-lg'} %}
+<span {{ attributes.defaults({class: 'inline-grid shrink-0 place-items-center rounded-full font-semibold ' ~ sizes[size] ~ ' ' ~ tones[name|avatar_tone(tones|length)], 'aria-hidden': 'true'}) }}>{{ name|initials }}</span>

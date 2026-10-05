@@ -19,7 +19,8 @@ This document explains **how the application is organised and why**, compared wi
 11. [Persistence](#persistence)
 12. [Testing strategy](#testing-strategy)
 13. [Enforced, not just drawn](#enforced-not-just-drawn)
-14. [Trade-offs and next steps](#trade-offs-and-next-steps)
+14. [Beyond the brief](#beyond-the-brief)
+15. [Trade-offs and next steps](#trade-offs-and-next-steps)
 
 ## The idea in one sentence
 
@@ -82,7 +83,9 @@ src/
 │   │   ├── FailJobApplicationScreening/       ← reacts to Screening's failure
 │   │   ├── SearchJobApplications/             ← read side
 │   │   ├── FindJobApplication/                ← read side
+│   │   ├── FindJobApplicationStats/           ← read side
 │   │   ├── ListJobOffers/                     ← read side
+│   │   ├── FindJobOffer/                      ← read side
 │   │   └── JobApplicationReadModel.php        read-side port
 │   └── Infrastructure/
 │       ├── Http/                       invokable controllers, apply form + request DTO
@@ -97,7 +100,7 @@ src/
 │       └── Messenger/                  "retries exhausted" listener
 └── Shared/                             the minimum common to all
     ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, bus ports
-    └── Infrastructure/                 Messenger bus adapters, JSON event serializer, DBAL helpers, login
+    └── Infrastructure/                 Messenger bus adapters, JSON event serializer, DBAL helpers, login, Twig extensions
 ```
 
 ### Domain — the core
@@ -231,9 +234,11 @@ Rules the aggregate protects: transitions only along the pipeline (final states 
 | Command | `CompleteJobApplicationScreening` | Screening's `cv_screened` event | Summary + score attached, `JobApplicationScreened` |
 | Command | `FailJobApplicationScreening` | Screening's `cv_screening_failed` event | Screening `failed`, `JobApplicationScreeningFailed` |
 | Subscriber | `ScreenCvOnJobApplicationSubmitted` (Screening) | Recruitment's `submitted` event | Calls the AI port, publishes `CvScreened` |
-| Query | `SearchJobApplications` | Applications page | Page of rows: newest first, filtered by status / position, searched by name / email |
-| Query | `FindJobApplication` | Detail page | Everything incl. CV, AI outputs, timestamps and allowed next statuses |
-| Query | `ListJobOffers` | Apply page, position filter | Job offer catalog |
+| Query | `SearchJobApplications` | Applications page | Page of rows filtered by status / position, searched by name / email, sorted by any column (newest first by default), each with the number of applications from its email |
+| Query | `FindJobApplicationStats` | Applications page, jobs page | Counts per status and per offer, ongoing analyses and average score |
+| Query | `FindJobApplication` | Detail page | Everything incl. CV, AI outputs, timestamps, allowed next statuses and the other applications from the same email |
+| Query | `ListJobOffers` | Jobs page, position filter | Job offer catalog |
+| Query | `FindJobOffer` | Apply page, confirmation page | One job offer |
 
 Recruitment reacts to Screening's events by **translating them into its own commands**: the change then goes through the command bus like any other write (transaction, business rules, events).
 
@@ -317,11 +322,11 @@ sequenceDiagram
     participant RM as SQL read model
     participant DB as PostgreSQL
 
-    H->>QB: SearchJobApplicationsQuery(status, position, search, page)
+    H->>QB: SearchJobApplicationsQuery(status, position, search, sort, page)
     QB->>Q: handle
-    Q->>Q: validate & normalise filters
+    Q->>Q: validate & normalise filters and sort (closed set of columns)
     Q->>RM: search(criteria)
-    RM->>DB: SELECT … ORDER BY applied_at DESC (indexed)
+    RM->>DB: SELECT … ORDER BY chosen column (applied_at DESC by default, indexed)
     RM-->>H: JobApplicationPage of DTOs
 ```
 
@@ -358,7 +363,7 @@ body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "
 - **Mapping in XML** inside Infrastructure, so entities carry no ORM attributes (Doctrine ORM 3 removed YAML mapping).
 - **Value objects** become columns through custom DBAL types (`Email`, `FullName`, ids…); `Candidate` and `AiScreening` are embeddables (`candidate_*`, `ai_*` columns). Doctrine cannot express a *nullable* embeddable, so a small `postLoad` listener turns an all-NULL `AiScreening` back into `null`.
 - **Aggregates reference each other by id** (an application stores `jobOfferId`, not a Doctrine association), so there is no foreign key between them; integrity is checked by the use case.
-- **Indexes** for the list: `(applied_at, id)` for newest-first ordering, `status` and `job_offer_id` for the filters, and `pg_trgm` GIN indexes for the name/email "contains" search. The GIN indexes are declared to Doctrine by a schema listener so migrations never try to drop them.
+- **Indexes** for the list: `(applied_at, id)` for newest-first ordering, `status` and `job_offer_id` for the filters, `candidate_email` for grouping applications from the same email, and `pg_trgm` GIN indexes for the name/email "contains" search. The GIN indexes are declared to Doctrine by a schema listener so migrations never try to drop them.
 - **Ids are UUID v7**: generated by the caller before dispatching a command (commands return nothing) and naturally time-ordered.
 
 ## Testing strategy
@@ -387,6 +392,18 @@ Every acceptance criterion of the brief (submission, enrichment, newest-first li
 | Recruiter area requires signing in; candidate pages stay public | Functional tests |
 | All of the above on every pull request | GitHub Actions (`make qa`, `make test` inside Docker) |
 
+## Beyond the brief
+
+The brief asks for the apply → enrich → browse flow; the README lists the extras added on top. Two of them have an architectural angle: abuse protection and the grouping of applications by email.
+
+**Abuse protection lives at the edge.** Every valid application costs a write and an AI analysis, so the apply form accepts at most `APPLY_RATE_LIMIT` (5) valid submissions per client IP every 15 minutes (sliding window, Symfony RateLimiter). Beyond that it answers `429` with `Retry-After` and keeps what the candidate typed; invalid submissions don't count, so a typo never locks a person out. The recruiter login is throttled the same way (5 failed attempts per minute for an email + IP pair).
+
+Neither is a business rule, so neither touches the domain or the use case: the check happens in the HTTP controller before the command is dispatched, and another entry point (an API, a CLI) would set its own policy. A rule such as "one application per email and offer" would be different: that is business, and it would live in the domain.
+
+**Applications from the same email are grouped on the read side.** A recruiter wants to see that a person has applied before, as real ATSs do. Each row of the list counts the applications sent from its email (linking to all of them) and the detail page lists the others. It is a query need, so it lives where CQRS puts queries: the read model (a correlated count and a second query, backed by an index on the email). The write model is unchanged: the candidate is still a value object inside each application.
+
+The step not taken on purpose is promoting `Candidate` to an aggregate (its own id and table, applications referencing it, one candidate per email). **The email isn't verified**: grouping applications under one identity by email would let anyone attach an application, with their name, phone and CV, to someone else's profile, or overwrite it. That is why the UI says "from the same email address, which isn't verified" rather than presenting one person. See the next steps below.
+
 ## Trade-offs and next steps
 
 Hexagonal architecture is not free: more files, more indirection, some mapping between layers. For a plain CRUD, a classic Symfony + API Platform approach is more productive. It pays off when business rules are rich, the code must live for years, or — as here — asynchronous flows between separate parts of the domain need clear boundaries.
@@ -399,3 +416,5 @@ What would change on the way to production:
 - **Accent-insensitive search** (`unaccent`) and keyset pagination for very large tables.
 - **Internationalised emails** (non-ASCII local parts), currently rejected by the `Email` value object.
 - **A real user store** (users table or SSO) instead of the in-memory demo recruiter account.
+- **A `Candidate` aggregate, once the email is verified** (a confirmation link, or candidate accounts): its own id and table, applications referencing it by id, a unique email, a migration that merges today's duplicates, and a way for recruiters to merge or split profiles by hand. Until then, grouping stays on the read side (see [Beyond the brief](#beyond-the-brief)).
+- **Rate limiting across instances**: the counters live in the app cache, so several app instances would share them through Redis, and behind a load balancer `trusted_proxies` must be set so the client IP is the real one.

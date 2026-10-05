@@ -15,6 +15,7 @@ Goal: a **simple, calm, professional** recruiter tool — think Linear / Ashby, 
 - **Semantic colours** only for meaning:
   - Status badges: `received` slate · `in_review` sky · `interviewing` violet · `hired` emerald · `rejected` rose (final list decided in iteration 2).
   - AI score: `≥ 70` emerald · `40–69` amber · `< 40` rose. Always show the number too — never colour alone.
+- **Avatars** are the one decorative exception: initials on a soft tone stable per name (indigo, cyan, fuchsia, orange, teal — hues not used by status or score), always next to the written name.
 - **Typography**: system font stack (`font-sans`), no web fonts. Sizes: page title `text-2xl font-semibold`, section title `text-lg font-medium`, body `text-sm`, meta/timestamps `text-xs text-slate-500`. Numbers in tables use `tabular-nums`.
 - **Surfaces**: page background `bg-slate-50`; content in white cards `rounded-xl border border-slate-200 shadow-sm`. Consistent spacing scale (`gap-4`, `p-6`); no arbitrary values (`w-[337px]`).
 - **Layout**: centred container `max-w-6xl mx-auto px-4 sm:px-6`, top nav with product name + "Jobs" / "Applications" + theme toggle. Forms max `max-w-2xl`.
@@ -29,7 +30,9 @@ Goal: a **simple, calm, professional** recruiter tool — think Linear / Ashby, 
 
 ## Components (Twig)
 
-- Reusable pieces as anonymous **Twig Components** in `templates/components/` (`<twig:StatusBadge :status="…" />`, `Score`, `ScreeningBadge`, `EmptyState`, `Time`); buttons, cards and inputs as CSS component classes (`.btn`, `.card`, `.input`). Never duplicate the class soup of a component in two templates.
+- Reusable pieces as anonymous **Twig Components** in `templates/components/` (`<twig:StatusBadge :status="…" />`, `Score`, `ScreeningBadge`, `EmptyState`, `Time`, `Avatar`, `Icon`, `Logo`, `Pipeline`, `Pagination`); buttons, cards and inputs as CSS component classes (`.btn`, `.card`, `.input`). Never duplicate the class soup of a component in two templates.
+- **Icons**: only from `<twig:Icon name="…" />` (24×24 outline, `currentColor`), decorative (`aria-hidden`) unless they are the only content of a control, which then gets an `aria-label`.
+- **Flash messages** are toasts (top right, auto-dismiss after 5 s, paused on hover, closable).
 - **Buttons**: one primary per screen; secondary are white with border.
 - **Forms**: visible `<label>` for every field, helper text under the field, inline error messages in `text-rose-600` next to the field, required fields marked. The CV textarea is large (`rows="14"`), monospace, with a character counter.
 - **Tables**: sticky header, row hover, whole row clickable to the detail, right-aligned numeric columns, relative time with absolute time in `title`.

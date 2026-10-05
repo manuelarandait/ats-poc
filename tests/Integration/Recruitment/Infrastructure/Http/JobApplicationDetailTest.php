@@ -63,6 +63,27 @@ final class JobApplicationDetailTest extends WebTestCase
         self::assertSelectorExists('turbo-frame#application-detail [data-controller="poll"]');
     }
 
+    public function test_other_applications_from_the_same_email_are_listed_with_a_caveat(): void
+    {
+        $application = JobApplicationFactory::new()->candidate('Jane Doe', 'jane@example.com')->create();
+        $other = JobApplicationFactory::new()->forOffer(JobOfferFactory::createOne(['title' => 'Data Engineer']))->candidate('Jane Doe', 'jane@example.com')->create();
+
+        $this->client->request('GET', '/applications/'.$application->id->value);
+
+        self::assertSelectorTextContains('section[aria-labelledby="other-title"]', 'Data Engineer');
+        self::assertSelectorTextContains('section[aria-labelledby="other-title"]', "same email address, which isn't verified");
+        self::assertSelectorExists('section[aria-labelledby="other-title"] a[href="/applications/'.$other->id->value.'"]');
+    }
+
+    public function test_without_other_applications_there_is_no_such_section(): void
+    {
+        $application = JobApplicationFactory::createOne();
+
+        $this->client->request('GET', '/applications/'.$application->id->value);
+
+        self::assertSelectorNotExists('section[aria-labelledby="other-title"]');
+    }
+
     public function test_a_failed_analysis_is_explained_without_technical_details(): void
     {
         $application = JobApplicationFactory::new()
@@ -80,13 +101,29 @@ final class JobApplicationDetailTest extends WebTestCase
         $application = JobApplicationFactory::createOne();
         $crawler = $this->client->request('GET', '/applications/'.$application->id->value);
 
-        self::assertSame(['in_review', 'rejected'], $crawler->filter('#next-status option')->extract(['value']));
-        $this->client->submitForm('Update status', ['status' => 'in_review']);
+        self::assertSelectorTextContains('[aria-label="Hiring pipeline"] [aria-current="step"]', 'Received');
+        // Advance, reject, and the reject confirmation revealed by JS.
+        self::assertSame(['in_review', 'rejected', 'rejected'], $crawler->filter('section[aria-labelledby="status-title"] button[name="status"]')->extract(['value']));
+        $this->client->submitForm('Move to in review');
 
         self::assertResponseRedirects('/applications/'.$application->id->value, 303);
         $this->client->followRedirect();
         self::assertSelectorTextContains('[role="status"]', 'Status updated to "in review".');
-        self::assertSelectorTextContains('section[aria-labelledby="status-title"]', 'In review');
+        self::assertSelectorTextContains('[aria-label="Hiring pipeline"] [aria-current="step"]', 'In review');
+    }
+
+    public function test_the_recruiter_rejects_the_application(): void
+    {
+        $application = JobApplicationFactory::new()->inStatus(JobApplicationStatus::Interviewing)->create();
+        $this->client->request('GET', '/applications/'.$application->id->value);
+
+        // Without JS the "Reject" button submits directly; the inline confirmation is progressive enhancement.
+        $this->client->submitForm('Reject');
+
+        self::assertResponseRedirects('/applications/'.$application->id->value, 303);
+        $this->client->followRedirect();
+        self::assertSelectorTextContains('[role="status"]', 'Status updated to "rejected".');
+        self::assertSelectorTextContains('[aria-label="Hiring pipeline"] [aria-current="step"]', 'Rejected');
     }
 
     public function test_a_final_status_offers_no_further_changes(): void
@@ -96,7 +133,8 @@ final class JobApplicationDetailTest extends WebTestCase
         $this->client->request('GET', '/applications/'.$application->id->value);
 
         self::assertSelectorTextContains('section[aria-labelledby="status-title"]', 'Final status');
-        self::assertSelectorNotExists('#next-status');
+        self::assertSelectorTextContains('[aria-label="Hiring pipeline"] [aria-current="step"]', 'Hired');
+        self::assertSelectorNotExists('button[name="status"]');
     }
 
     public function test_a_forged_forbidden_transition_is_refused_by_the_domain(): void
@@ -104,13 +142,13 @@ final class JobApplicationDetailTest extends WebTestCase
         $application = JobApplicationFactory::createOne();
         $crawler = $this->client->request('GET', '/applications/'.$application->id->value);
 
-        // The select only offers allowed moves; a crafted request tries to skip steps.
-        $form = $crawler->selectButton('Update status')->form();
+        // The buttons only offer allowed moves; a crafted request tries to skip steps.
+        $form = $crawler->selectButton('Move to in review')->form();
         $this->client->request('POST', $form->getUri(), ['status' => 'hired', '_token' => $form->getValues()['_token']]);
         $this->client->followRedirect();
 
         self::assertSelectorTextContains('[role="status"]', 'cannot move from "received" to "hired"');
-        self::assertSelectorTextContains('section[aria-labelledby="status-title"]', 'Received');
+        self::assertSelectorTextContains('[aria-label="Hiring pipeline"] [aria-current="step"]', 'Received');
     }
 
     public function test_changing_the_status_requires_a_valid_csrf_token(): void

@@ -10,6 +10,8 @@
             <index name="idx_job_application_applied_at" columns="applied_at,id"/>
             <index name="idx_job_application_status" columns="status"/>
             <index name="idx_job_application_job_offer" columns="job_offer_id"/>
+            <!-- Applications from the same email address (grouping on the read side). -->
+            <index name="idx_job_application_candidate_email" columns="candidate_email"/>
         </indexes>
 
         <id name="id" type="job_application_id"/>

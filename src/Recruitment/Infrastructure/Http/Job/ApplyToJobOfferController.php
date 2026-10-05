@@ -19,6 +19,7 @@ use App\Shared\Domain\Bus\Command\CommandBus;
 use App\Shared\Domain\Bus\Query\QueryBus;
 use App\Shared\Domain\DomainError;
 use App\Shared\Domain\ValueObject\InvalidUuid;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
 use Symfony\Component\Form\FormError;
 use Symfony\Component\Form\FormFactoryInterface;
 use Symfony\Component\Form\FormInterface;
@@ -26,6 +27,8 @@ use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
+use Symfony\Component\RateLimiter\RateLimit;
+use Symfony\Component\RateLimiter\RateLimiterFactoryInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Uid\Uuid;
@@ -51,6 +54,8 @@ final readonly class ApplyToJobOfferController
         private FormFactoryInterface $forms,
         private UrlGeneratorInterface $urls,
         private Environment $twig,
+        #[Autowire(service: 'limiter.job_application')]
+        private RateLimiterFactoryInterface $applyLimiter,
     ) {
     }
 
@@ -62,6 +67,13 @@ final readonly class ApplyToJobOfferController
         $form->handleRequest($request);
 
         if ($form->isSubmitted() && $form->isValid()) {
+            // Only valid submissions count: a person fixing a typo doesn't burn attempts.
+            $limit = $this->applyLimiter->create($request->getClientIp() ?? 'unknown')->consume();
+
+            if (!$limit->isAccepted()) {
+                return $this->tooManyApplications($offer, $form, $limit);
+            }
+
             $applicationId = Uuid::v7()->toRfc4122();
 
             try {
@@ -76,6 +88,24 @@ final readonly class ApplyToJobOfferController
         return new Response(
             $this->twig->render('jobs/show.html.twig', ['offer' => $offer, 'form' => $form->createView()]),
             $form->isSubmitted() ? Response::HTTP_UNPROCESSABLE_ENTITY : Response::HTTP_OK,
+        );
+    }
+
+    /**
+     * 429 with Retry-After, but still the page: the candidate keeps what they typed.
+     *
+     * @param FormInterface<ApplyRequest> $form
+     */
+    private function tooManyApplications(JobOfferView $offer, FormInterface $form, RateLimit $limit): Response
+    {
+        $seconds = max(1, $limit->getRetryAfter()->getTimestamp() - time());
+        $minutes = (int) ceil($seconds / 60);
+        $form->addError(new FormError(\sprintf('Too many applications from your network. Please try again in %d %s.', $minutes, 1 === $minutes ? 'minute' : 'minutes')));
+
+        return new Response(
+            $this->twig->render('jobs/show.html.twig', ['offer' => $offer, 'form' => $form->createView()]),
+            Response::HTTP_TOO_MANY_REQUESTS,
+            ['Retry-After' => (string) $seconds],
         );
     }
 

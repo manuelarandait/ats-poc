@@ -76,6 +76,39 @@ final class ApplyToJobOfferTest extends WebTestCase
         self::assertSelectorTextContains('h1', 'Application received');
     }
 
+    public function test_too_many_applications_from_one_ip_are_refused_until_the_window_passes(): void
+    {
+        // Same kernel for every request, so the limiter keeps its in-memory counters.
+        $this->client->disableReboot();
+
+        for ($i = 1; $i <= 5; ++$i) {
+            $this->apply(\sprintf('candidate%d@example.com', $i));
+            self::assertResponseStatusCodeSame(303);
+        }
+
+        $this->apply('candidate6@example.com');
+
+        self::assertResponseStatusCodeSame(429);
+        self::assertResponseHasHeader('Retry-After');
+        self::assertSelectorTextContains('[role="alert"]', 'Too many applications from your network. Please try again in');
+        self::assertSame('candidate6@example.com', $this->client->getCrawler()->filter('input[name="apply[email]"]')->attr('value'), 'What the candidate typed is kept.');
+        self::assertCount(5, JobApplicationFactory::repository()->findAll());
+    }
+
+    public function test_invalid_submissions_do_not_use_up_the_limit(): void
+    {
+        $this->client->disableReboot();
+
+        for ($i = 1; $i <= 6; ++$i) {
+            $this->client->request('GET', '/jobs/'.$this->offer->id->value);
+            $this->client->submitForm('Submit application', ['apply[fullName]' => '', 'apply[email]' => 'jane@example.com', 'apply[cv]' => 'PHP']);
+            self::assertResponseStatusCodeSame(422);
+        }
+
+        $this->apply('jane@example.com');
+        self::assertResponseStatusCodeSame(303);
+    }
+
     public function test_invalid_data_shows_field_errors_and_stores_nothing(): void
     {
         $this->client->request('GET', '/jobs/'.$this->offer->id->value);
@@ -114,5 +147,15 @@ final class ApplyToJobOfferTest extends WebTestCase
 
         $this->client->request('GET', '/jobs/not-a-uuid');
         self::assertResponseStatusCodeSame(404);
+    }
+
+    private function apply(string $email): void
+    {
+        $this->client->request('GET', '/jobs/'.$this->offer->id->value);
+        $this->client->submitForm('Submit application', [
+            'apply[fullName]' => 'Jane Doe',
+            'apply[email]' => $email,
+            'apply[cv]' => 'Backend engineer, 6 years with PHP.',
+        ]);
     }
 }

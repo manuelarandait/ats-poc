@@ -6,7 +6,9 @@ namespace App\Tests\Unit\Recruitment\Application\SearchJobApplications;
 
 use App\Recruitment\Application\SearchJobApplications\JobApplicationPage;
 use App\Recruitment\Application\SearchJobApplications\JobApplicationSearchCriteria;
+use App\Recruitment\Application\SearchJobApplications\JobApplicationSort;
 use App\Recruitment\Application\SearchJobApplications\SearchJobApplicationsQuery;
+use App\Recruitment\Application\SearchJobApplications\SortDirection;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobApplication\UnknownJobApplicationStatus;
 use App\Shared\Domain\ValueObject\InvalidUuid;
@@ -55,6 +57,40 @@ final class JobApplicationSearchCriteriaTest extends TestCase
         $this->expectException(InvalidUuid::class);
 
         JobApplicationSearchCriteria::fromQuery(new SearchJobApplicationsQuery(jobOfferId: 'php'));
+    }
+
+    public function test_newest_first_is_the_default_order(): void
+    {
+        $criteria = JobApplicationSearchCriteria::fromQuery(new SearchJobApplicationsQuery());
+
+        self::assertSame(JobApplicationSort::AppliedAt, $criteria->sort);
+        self::assertSame(SortDirection::Desc, $criteria->direction);
+    }
+
+    public function test_a_column_without_a_direction_starts_in_its_natural_direction(): void
+    {
+        self::assertSame(SortDirection::Asc, JobApplicationSearchCriteria::fromQuery(new SearchJobApplicationsQuery(sort: 'candidate'))->direction);
+        self::assertSame(SortDirection::Desc, JobApplicationSearchCriteria::fromQuery(new SearchJobApplicationsQuery(sort: 'score'))->direction);
+        self::assertSame(SortDirection::Asc, JobApplicationSearchCriteria::fromQuery(new SearchJobApplicationsQuery(sort: 'score', direction: 'asc'))->direction);
+    }
+
+    public function test_an_unknown_sort_or_direction_falls_back_instead_of_reaching_the_query(): void
+    {
+        $criteria = JobApplicationSearchCriteria::fromQuery(new SearchJobApplicationsQuery(sort: 'candidate_email; DROP TABLE', direction: 'up'));
+
+        self::assertSame(JobApplicationSort::AppliedAt, $criteria->sort);
+        self::assertSame(SortDirection::Desc, $criteria->direction);
+    }
+
+    public function test_clicking_the_sorted_column_flips_it_and_another_column_starts_in_its_natural_direction(): void
+    {
+        $page = new JobApplicationPage([], 0, 1, 20, JobApplicationSort::Score, SortDirection::Desc);
+
+        self::assertSame(SortDirection::Asc, $page->nextDirection('score'));
+        self::assertSame(SortDirection::Asc, $page->nextDirection('candidate'));
+        self::assertSame(SortDirection::Desc, $page->nextDirection('applied'));
+        self::assertFalse($page->isDefaultSort());
+        self::assertTrue($page->isDefaultSortFor('applied', 'desc'));
     }
 
     public function test_an_empty_result_still_has_one_page(): void

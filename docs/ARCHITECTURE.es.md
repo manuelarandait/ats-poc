@@ -19,7 +19,8 @@ Este documento explica **cómo está organizada la aplicación y por qué**, en 
 11. [Persistencia](#persistencia)
 12. [Estrategia de tests](#estrategia-de-tests)
 13. [Verificado, no solo dibujado](#verificado-no-solo-dibujado)
-14. [Trade-offs y próximos pasos](#trade-offs-y-próximos-pasos)
+14. [Más allá del enunciado](#más-allá-del-enunciado)
+15. [Trade-offs y próximos pasos](#trade-offs-y-próximos-pasos)
 
 ## La idea en una frase
 
@@ -82,7 +83,9 @@ src/
 │   │   ├── FailJobApplicationScreening/       ← reacciona al fallo de Screening
 │   │   ├── SearchJobApplications/             ← lado de lectura
 │   │   ├── FindJobApplication/                ← lado de lectura
+│   │   ├── FindJobApplicationStats/           ← lado de lectura
 │   │   ├── ListJobOffers/                     ← lado de lectura
+│   │   ├── FindJobOffer/                      ← lado de lectura
 │   │   └── JobApplicationReadModel.php        puerto del lado de lectura
 │   └── Infrastructure/
 │       ├── Http/                       controllers invocables, formulario de envío + DTO de la petición
@@ -97,7 +100,7 @@ src/
 │       └── Messenger/                  listener de "reintentos agotados"
 └── Shared/                             lo mínimo común a todos
     ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, puertos de los buses
-    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, login
+    └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, login, extensiones Twig
 ```
 
 ### Domain: el núcleo
@@ -231,9 +234,11 @@ Los **comandos** cambian el estado y no devuelven nada; las **queries** devuelve
 | Comando | `CompleteJobApplicationScreening` | Evento `cv_screened` de Screening | Resumen + score asociados, `JobApplicationScreened` |
 | Comando | `FailJobApplicationScreening` | Evento `cv_screening_failed` de Screening | Screening `failed`, `JobApplicationScreeningFailed` |
 | Subscriber | `ScreenCvOnJobApplicationSubmitted` (Screening) | Evento `submitted` de Recruitment | Llama al puerto de IA y publica `CvScreened` |
-| Query | `SearchJobApplications` | Página de candidaturas | Página de filas: más recientes primero, filtradas por estado / posición, búsqueda por nombre / email |
-| Query | `FindJobApplication` | Página de detalle | Todo, incluidos el CV, los resultados de la IA, las fechas y los siguientes estados permitidos |
-| Query | `ListJobOffers` | Página de envío, filtro por posición | Catálogo de ofertas |
+| Query | `SearchJobApplications` | Página de candidaturas | Página de filas filtradas por estado / posición, búsqueda por nombre / email, ordenadas por cualquier columna (más recientes primero por defecto), cada una con el número de candidaturas de su email |
+| Query | `FindJobApplicationStats` | Página de candidaturas, página de ofertas | Conteos por estado y por oferta, análisis en curso y score medio |
+| Query | `FindJobApplication` | Página de detalle | Todo, incluidos el CV, los resultados de la IA, las fechas, los siguientes estados permitidos y las demás candidaturas del mismo email |
+| Query | `ListJobOffers` | Página de ofertas, filtro por posición | Catálogo de ofertas |
+| Query | `FindJobOffer` | Página de envío, página de confirmación | Una oferta |
 
 Recruitment reacciona a los eventos de Screening **traduciéndolos a comandos propios**: así el cambio pasa por el command bus como cualquier otra escritura (transacción, reglas de negocio, eventos).
 
@@ -317,11 +322,11 @@ sequenceDiagram
     participant RM as Modelo de lectura SQL
     participant DB as PostgreSQL
 
-    H->>QB: SearchJobApplicationsQuery(estado, posición, búsqueda, página)
+    H->>QB: SearchJobApplicationsQuery(estado, posición, búsqueda, orden, página)
     QB->>Q: handle
-    Q->>Q: valida y normaliza los filtros
+    Q->>Q: valida y normaliza filtros y orden (conjunto cerrado de columnas)
     Q->>RM: search(criterios)
-    RM->>DB: SELECT … ORDER BY applied_at DESC (con índices)
+    RM->>DB: SELECT … ORDER BY columna elegida (applied_at DESC por defecto, con índices)
     RM-->>H: JobApplicationPage de DTOs
 ```
 
@@ -358,7 +363,7 @@ body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "
 - **Mapping en XML** dentro de Infrastructure, para que las entidades no lleven atributos del ORM (Doctrine ORM 3 eliminó el mapping en YAML).
 - **Los value objects** se convierten en columnas mediante tipos DBAL propios (`Email`, `FullName`, ids…); `Candidate` y `AiScreening` son embeddables (columnas `candidate_*` y `ai_*`). Doctrine no sabe expresar un embeddable *nulo*, así que un pequeño listener `postLoad` convierte un `AiScreening` con todo a NULL de nuevo en `null`.
 - **Los agregados se referencian por id** (una candidatura guarda `jobOfferId`, no una asociación de Doctrine), así que no hay foreign key entre ellos; la integridad la comprueba el caso de uso.
-- **Índices** para el listado: `(applied_at, id)` para el orden de más reciente a más antigua, `status` y `job_offer_id` para los filtros, e índices GIN `pg_trgm` para la búsqueda "contiene" por nombre o email. Los índices GIN se declaran a Doctrine con un listener de esquema, para que las migraciones nunca intenten borrarlos.
+- **Índices** para el listado: `(applied_at, id)` para el orden de más reciente a más antigua, `status` y `job_offer_id` para los filtros, `candidate_email` para agrupar las candidaturas del mismo email, e índices GIN `pg_trgm` para la búsqueda "contiene" por nombre o email. Los índices GIN se declaran a Doctrine con un listener de esquema, para que las migraciones nunca intenten borrarlos.
 - **Los ids son UUID v7**: los genera quien lanza el comando (los comandos no devuelven nada) y están ordenados por tiempo de forma natural.
 
 ## Estrategia de tests
@@ -387,6 +392,18 @@ Cada criterio de aceptación del enunciado (envío, enriquecimiento, listado de 
 | El área de reclutador exige iniciar sesión; las páginas del candidato siguen públicas | Tests funcionales |
 | Todo lo anterior en cada pull request | GitHub Actions (`make qa`, `make test` dentro de Docker) |
 
+## Más allá del enunciado
+
+El enunciado pide el flujo candidatura → enriquecimiento → consulta; el README enumera los extras añadidos encima. Dos de ellos tienen una lectura de arquitectura: la protección contra abusos y la agrupación de candidaturas por email.
+
+**La protección contra abusos vive en el borde.** Cada candidatura válida cuesta una escritura y un análisis de IA, así que el formulario acepta como máximo `APPLY_RATE_LIMIT` (5) envíos válidos por IP cada 15 minutos (ventana deslizante, Symfony RateLimiter). A partir de ahí responde `429` con `Retry-After` y conserva lo que el candidato había escrito; los envíos inválidos no cuentan, así que una errata nunca bloquea a una persona. El login del reclutador se limita igual (5 intentos fallidos por minuto para cada email + IP).
+
+Ninguno de los dos es una regla de negocio, así que no tocan el dominio ni el caso de uso: la comprobación se hace en el controlador HTTP antes de despachar el command, y otro punto de entrada (una API, la consola) tendría su propia política. Una regla como "una candidatura por email y oferta" sería distinta: eso es negocio y viviría en el dominio.
+
+**Las candidaturas del mismo email se agrupan en el lado de lectura.** El reclutador quiere ver que una persona ya ha aplicado antes, como hacen los ATS reales. Cada fila del listado cuenta las candidaturas enviadas desde su email (con un enlace a todas) y el detalle enumera las demás. Es una necesidad de consulta, así que vive donde CQRS pone las consultas: en el read model (un conteo correlacionado y una segunda consulta, apoyados en un índice sobre el email). El modelo de escritura no cambia: el candidato sigue siendo un value object dentro de cada candidatura.
+
+El paso que no se ha dado a propósito es convertir `Candidate` en un agregado (con su id y su tabla, las candidaturas referenciándolo, un candidato por email). **El email no está verificado**: agrupar candidaturas bajo una identidad por email permitiría a cualquiera colgar una candidatura, con su nombre, teléfono y CV, en el perfil de otra persona, o sobrescribirlo. Por eso la interfaz dice "desde la misma dirección de email, que no está verificada" en lugar de presentarlo como una sola persona. Ver los próximos pasos.
+
 ## Trade-offs y próximos pasos
 
 La arquitectura hexagonal no sale gratis: más ficheros, más indirección y algo de mapeo entre capas. Para un CRUD sencillo, un enfoque clásico con Symfony y API Platform es más productivo. Compensa cuando las reglas de negocio son ricas, el código tiene que vivir muchos años o, como aquí, hay flujos asíncronos entre partes separadas del dominio que necesitan fronteras claras.
@@ -399,3 +416,5 @@ Qué cambiaría de cara a producción:
 - **Búsqueda insensible a tildes** (`unaccent`) y paginación keyset para tablas muy grandes.
 - **Emails internacionalizados** (con caracteres no ASCII), que hoy rechaza el value object `Email`.
 - **Un almacén de usuarios real** (tabla de usuarios o SSO) en lugar de la cuenta de reclutador de demo en memoria.
+- **Un agregado `Candidate`, una vez verificado el email** (un enlace de confirmación o cuentas de candidato): con su id y su tabla, las candidaturas referenciándolo por id, email único, una migración que fusione los duplicados actuales y una forma de que el reclutador fusione o separe perfiles a mano. Hasta entonces, la agrupación se queda en el lado de lectura (ver [Más allá del enunciado](#más-allá-del-enunciado)).
+- **Rate limiting entre instancias**: los contadores viven en la caché de la aplicación, así que con varias instancias se compartirían en Redis, y detrás de un balanceador habría que configurar `trusted_proxies` para que la IP del cliente sea la real.

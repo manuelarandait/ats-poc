@@ -3,30 +3,21 @@
 {% block title %}Applications{% endblock %}
 
 {% block body %}
-    <div class="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-semibold">Applications</h1>
-            <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Newest first. Filters apply as you type.</p>
-        </div>
+    <div class="mb-6">
+        <h1 class="text-2xl font-semibold">Applications</h1>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Every candidate across your open positions, newest first by default. Filters apply as you type; click a column to sort.</p>
     </div>
 
-    {# GET form: works without JS; with JS it submits on change into the results frame. #}
+    {# GET form: works without JS; with JS it submits on change into the results frame.
+       The status tabs live inside the frame (their counts change) but belong to this form. #}
     <form id="applications-filters" action="{{ path('applications_index') }}" method="get" role="search"
           data-controller="autosubmit" data-turbo-frame="{{ frame }}"
-          class="card mb-4 grid gap-3 p-4 sm:grid-cols-[1fr_auto_auto]">
-        <div>
+          class="mb-4 grid gap-3 sm:grid-cols-[1fr_16rem]">
+        <div class="relative">
             <label for="q" class="sr-only">Search by name or email</label>
+            <twig:Icon name="search" class="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
             <input id="q" type="search" name="q" value="{{ filters.q }}" placeholder="Search by name or email…"
-                   class="input" autocomplete="off" data-action="input->autosubmit#debounced">
-        </div>
-        <div>
-            <label for="status" class="sr-only">Status</label>
-            <select id="status" name="status" class="input" data-action="change->autosubmit#submit">
-                <option value="">All statuses</option>
-                {% for status in statuses %}
-                    <option value="{{ status.value }}" {{ filters.status == status.value ? 'selected' }}>{{ status.value|replace({'_': ' '})|capitalize }}</option>
-                {% endfor %}
-            </select>
+                   class="input pl-9" autocomplete="off" data-action="input->autosubmit#debounced">
         </div>
         <div>
             <label for="position" class="sr-only">Position</label>
