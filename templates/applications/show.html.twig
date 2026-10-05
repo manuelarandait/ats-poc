@@ -37,18 +37,7 @@
                         {% if application.screeningStatus == 'completed' %}
                             <div class="mt-4 flex flex-col gap-5 sm:flex-row sm:items-center">
                                 {% if application.aiScore is not null %}
-                                    {% set band = application.aiScore >= 70 ? 'stroke-emerald-500' : (application.aiScore >= 40 ? 'stroke-amber-500' : 'stroke-rose-500') %}
-                                    {# r = 100/2π: the circumference is 100, so the dash length is the score itself. #}
-                                    <div class="relative size-24 shrink-0" role="img" aria-label="Relevance score {{ application.aiScore }} out of 100">
-                                        <svg class="size-24 -rotate-90" viewBox="0 0 36 36" aria-hidden="true">
-                                            <circle cx="18" cy="18" r="15.9155" fill="none" stroke-width="3" class="stroke-slate-100 dark:stroke-slate-800"/>
-                                            <circle cx="18" cy="18" r="15.9155" fill="none" stroke-width="3" stroke-linecap="round" class="{{ band }}" stroke-dasharray="{{ application.aiScore }} 100"/>
-                                        </svg>
-                                        <div class="absolute inset-0 grid place-content-center text-center" aria-hidden="true">
-                                            <span class="text-2xl font-semibold tabular-nums leading-none">{{ application.aiScore }}</span>
-                                            <span class="mt-1 text-xs text-slate-400">score</span>
-                                        </div>
-                                    </div>
+                                    <twig:ScoreRing :score="application.aiScore" />
                                 {% endif %}
                                 <div>
                                     <h3 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Summary</h3>

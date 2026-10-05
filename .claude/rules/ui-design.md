@@ -30,7 +30,7 @@ Goal: a **simple, calm, professional** recruiter tool — think Linear / Ashby, 
 
 ## Components (Twig)
 
-- Reusable pieces as anonymous **Twig Components** in `templates/components/` (`<twig:StatusBadge :status="…" />`, `Score`, `ScreeningBadge`, `EmptyState`, `Time`, `Avatar`, `Icon`, `Logo`, `Pipeline`, `Pagination`); buttons, cards and inputs as CSS component classes (`.btn`, `.card`, `.input`). Never duplicate the class soup of a component in two templates.
+- Reusable pieces as anonymous **Twig Components** in `templates/components/` (`<twig:StatusBadge :status="…" />`, `Score`, `ScoreRing`, `ScreeningBadge`, `EmptyState`, `Time`, `Avatar`, `Icon`, `Logo`, `Pipeline`, `Pagination`); buttons, cards and inputs as CSS component classes (`.btn`, `.card`, `.input`). Never duplicate the class soup of a component in two templates.
 - **Icons**: only from `<twig:Icon name="…" />` (24×24 outline, `currentColor`), decorative (`aria-hidden`) unless they are the only content of a control, which then gets an `aria-label`.
 - **Flash messages** are toasts (top right, auto-dismiss after 5 s, paused on hover, closable).
 - **Buttons**: one primary per screen; secondary are white with border.

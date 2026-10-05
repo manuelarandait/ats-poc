@@ -108,13 +108,13 @@
                 </table>
             </div>
 
-            <twig:Pagination :page="page" route="applications_index" :params="linkParams"
+            <twig:Pagination :pagination="page.pagination" route="applications_index" :params="linkParams"
                              :perPageOptions="perPageOptions" formId="applications-filters" />
         {% endif %}
     </div>
 
     {# Keep refreshing while any visible application is still being analysed. #}
     {% if page.items|filter(i => i.screeningStatus == 'pending')|length %}
-        <div hidden data-controller="poll" data-poll-url-value="{{ path('applications_index', linkParams|merge({page: page.page})) }}"></div>
+        <div hidden data-controller="poll" data-poll-url-value="{{ path('applications_index', linkParams|merge({page: page.pagination.page})) }}"></div>
     {% endif %}
 </turbo-frame>

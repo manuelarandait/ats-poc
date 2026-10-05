@@ -6,11 +6,11 @@ namespace App\Recruitment\Infrastructure\Http\JobApplication;
 
 use App\Recruitment\Application\FindJobApplicationStats\FindJobApplicationStatsQuery;
 use App\Recruitment\Application\ListJobOffers\ListJobOffersQuery;
-use App\Recruitment\Application\SearchJobApplications\JobApplicationPage;
 use App\Recruitment\Application\SearchJobApplications\SearchJobApplicationsQuery;
 use App\Recruitment\Domain\JobApplication\UnknownJobApplicationStatus;
 use App\Shared\Domain\Bus\Query\QueryBus;
 use App\Shared\Domain\ValueObject\InvalidUuid;
+use App\Shared\Infrastructure\Http\PaginationParams;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
@@ -23,8 +23,7 @@ final readonly class ListJobApplicationsController
     public const string RESULTS_FRAME = 'applications-results';
 
     /** Page sizes offered in the UI; anything else falls back to the default. */
-    public const array PER_PAGE_OPTIONS = [10, 20, 50];
-    private const int DEFAULT_PER_PAGE = 20;
+    private const array PER_PAGE_OPTIONS = [10, 20, 50];
 
     public function __construct(
         private QueryBus $queries,
@@ -40,17 +39,18 @@ final readonly class ListJobApplicationsController
             'status' => $request->query->getString('status'),
             'position' => $request->query->getString('position'),
         ];
-        $sort = ['sort' => $request->query->getString('sort'), 'dir' => $request->query->getString('dir')];
-        $perPage = $request->query->getInt('perPage', self::DEFAULT_PER_PAGE);
-        $perPage = \in_array($perPage, self::PER_PAGE_OPTIONS, true) ? $perPage : self::DEFAULT_PER_PAGE;
+        $paging = PaginationParams::fromRequest($request, self::PER_PAGE_OPTIONS);
 
         try {
-            $page = $this->search($filters, $sort, $request->query->getInt('page', 1), $perPage);
-
-            // A page past the end (e.g. after narrowing the filters) shows the last one instead of nothing.
-            if ([] === $page->items && $page->page > $page->pages()) {
-                $page = $this->search($filters, $sort, $page->pages(), $perPage);
-            }
+            $page = $this->queries->ask(new SearchJobApplicationsQuery(
+                status: $filters['status'],
+                jobOfferId: $filters['position'],
+                search: $filters['q'],
+                page: $paging->page,
+                perPage: $paging->perPage,
+                sort: $request->query->getString('sort'),
+                direction: $request->query->getString('dir'),
+            ));
         } catch (UnknownJobApplicationStatus|InvalidUuid $invalidFilter) {
             throw new BadRequestHttpException($invalidFilter->getMessage(), $invalidFilter);
         }
@@ -60,11 +60,11 @@ final readonly class ListJobApplicationsController
             'stats' => $this->queries->ask(new FindJobApplicationStatsQuery($filters['position'], $filters['q'])),
             'filters' => $filters,
             'frame' => self::RESULTS_FRAME,
-            'perPageOptions' => self::PER_PAGE_OPTIONS,
+            'perPageOptions' => $paging->perPageOptions,
             // Query parameters that every page link must keep (empty ones, the default sort and page size are dropped).
             'linkParams' => array_filter($filters)
                 + ($page->isDefaultSort() ? [] : ['sort' => $page->sort->value, 'dir' => $page->direction->value])
-                + (self::DEFAULT_PER_PAGE === $perPage ? [] : ['perPage' => $perPage]),
+                + $paging->linkParams(),
         ];
 
         // A frame request (live filtering, pagination, polling) only needs the results.
@@ -75,22 +75,5 @@ final readonly class ListJobApplicationsController
         return new Response($this->twig->render('applications/index.html.twig', $context + [
             'offers' => $this->queries->ask(new ListJobOffersQuery()),
         ]));
-    }
-
-    /**
-     * @param array{q: string, status: string, position: string} $filters
-     * @param array{sort: string, dir: string}                   $sort
-     */
-    private function search(array $filters, array $sort, int $page, int $perPage): JobApplicationPage
-    {
-        return $this->queries->ask(new SearchJobApplicationsQuery(
-            status: $filters['status'],
-            jobOfferId: $filters['position'],
-            search: $filters['q'],
-            page: $page,
-            perPage: $perPage,
-            sort: $sort['sort'],
-            direction: $sort['dir'],
-        ));
     }
 }

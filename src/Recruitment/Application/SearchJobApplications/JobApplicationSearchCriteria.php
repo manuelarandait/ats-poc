@@ -6,6 +6,7 @@ namespace App\Recruitment\Application\SearchJobApplications;
 
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobOffer\JobOfferId;
+use App\Shared\Domain\Pagination\PageRequest;
 
 /**
  * Validated, normalised filters: raw query-string values become typed or null.
@@ -14,15 +15,11 @@ use App\Recruitment\Domain\JobOffer\JobOfferId;
  */
 final readonly class JobApplicationSearchCriteria
 {
-    public const int DEFAULT_PER_PAGE = 20;
-    public const int MAX_PER_PAGE = 100;
-
     private function __construct(
         public ?JobApplicationStatus $status,
         public ?JobOfferId $jobOfferId,
         public ?string $search,
-        public int $page,
-        public int $perPage,
+        public PageRequest $pageRequest,
         public JobApplicationSort $sort,
         public SortDirection $direction,
     ) {
@@ -37,16 +34,15 @@ final readonly class JobApplicationSearchCriteria
             self::isBlank($query->status) ? null : JobApplicationStatus::fromValue((string) $query->status),
             self::isBlank($query->jobOfferId) ? null : JobOfferId::fromString((string) $query->jobOfferId),
             '' === $search ? null : $search,
-            max(1, $query->page),
-            min(max(1, $query->perPage), self::MAX_PER_PAGE),
+            PageRequest::of($query->page, $query->perPage),
             $sort,
             SortDirection::tryFrom(trim($query->direction ?? '')) ?? $sort->defaultDirection(),
         );
     }
 
-    public function offset(): int
+    public function onPage(int $page): self
     {
-        return ($this->page - 1) * $this->perPage;
+        return new self($this->status, $this->jobOfferId, $this->search, $this->pageRequest->onPage($page), $this->sort, $this->direction);
     }
 
     private static function isBlank(?string $value): bool

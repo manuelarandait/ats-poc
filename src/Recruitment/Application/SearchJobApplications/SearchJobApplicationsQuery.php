@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Recruitment\Application\SearchJobApplications;
 
 use App\Shared\Domain\Bus\Query\Query;
+use App\Shared\Domain\Pagination\PageRequest;
 
 /**
  * Raw filters as they come from the UI (query string): blank means "any".
@@ -18,7 +19,7 @@ final readonly class SearchJobApplicationsQuery implements Query
         public ?string $jobOfferId = null,
         public ?string $search = null,
         public int $page = 1,
-        public int $perPage = JobApplicationSearchCriteria::DEFAULT_PER_PAGE,
+        public int $perPage = PageRequest::DEFAULT_PER_PAGE,
         public ?string $sort = null,
         public ?string $direction = null,
     ) {
