@@ -75,6 +75,9 @@ final class JobApplicationDetailTest extends WebTestCase
         self::assertSelectorTextContains('section[aria-labelledby="position-title"] h3', 'Requirements');
         self::assertSelectorNotExists('section[aria-labelledby="position-title"] details[open]', 'The offer starts folded: the chips sum it up.');
         self::assertSelectorExists('section[aria-labelledby="cv-title"] details[open]');
+        // Kept as they are when Turbo re-renders this page (status change, polling), not when opening another application.
+        self::assertSelectorExists(\sprintf('details#position-%s[data-turbo-permanent]', $application->id->value));
+        self::assertSelectorExists(\sprintf('details#cv-%s[data-turbo-permanent]', $application->id->value));
     }
 
     public function test_an_analysis_made_before_the_skill_breakdown_existed_shows_only_the_summary(): void

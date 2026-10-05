@@ -70,13 +70,13 @@
                 </section>
 
                 {# The offer, folded: the skill chips above already sum up what it asks for. #}
-                <twig:CollapsibleCard id="position" title="Position · {{ application.positionTitle }}">
+                <twig:CollapsibleCard id="position" title="Position · {{ application.positionTitle }}" :remember="application.id">
                     <twig:JobDescription :description="application.positionDescription" class="mt-4" />
                     <a href="{{ path('jobs_show', {id: application.jobOfferId}) }}" data-turbo-frame="_top" class="link mt-5 inline-flex items-center gap-1 text-sm">Open the job page <twig:Icon name="arrow-right" class="size-4" /></a>
                 </twig:CollapsibleCard>
 
                 {# What the recruiter came to read: open, but it can be folded away. #}
-                <twig:CollapsibleCard id="cv" title="CV" :open="true">
+                <twig:CollapsibleCard id="cv" title="CV" :open="true" :remember="application.id">
                     <pre class="mt-3 max-h-[32rem] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-slate-50 p-4 font-mono text-sm leading-relaxed text-slate-800 dark:bg-slate-950 dark:text-slate-200">{{ application.cv }}</pre>
                 </twig:CollapsibleCard>
 
