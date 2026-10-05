@@ -374,8 +374,19 @@ body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "
 | Integration | Adapters work for real: Doctrine round-trips, SQL read models, indexes, buses | PostgreSQL test database; every test rolled back (dama/doctrine-test-bundle); data seeded with Foundry through domain behaviour. |
 | Contract | Each consumer can read what each publisher sends | Real JSON serializer, publisher class in → consumer class out. |
 | End-to-end async | Submission → Screening → result, including retries and the failure path | A real Messenger `Worker` over the in-memory transport with serialization on. |
+| Functional | Every page, access control, rate limiting, and the whole journey from the apply form to the recruiter screens | `WebTestCase` against the real kernel; the journey test runs the worker between the submission and the recruiter's visit. |
 
-Every acceptance criterion of the brief (submission, enrichment, newest-first list with filters and search, detail) maps to at least one integration or end-to-end test.
+### Acceptance criteria → tests
+
+| Acceptance criterion | Proven by |
+|---|---|
+| Submitting an application creates a record with `appliedAt` and the default status | `ApplyToJobOfferTest::test_submitting_stores_a_received_application_and_queues_the_ai_enrichment`, `SubmitJobApplicationHandlerTest::test_it_stores_a_received_application_applied_now`, `JobApplicationTest::test_a_submitted_application_is_received_with_its_applied_at_date` |
+| Asynchronous enrichment adds summary and score to that application | `AsyncEnrichmentTest::test_a_submitted_application_is_pending_until_the_worker_enriches_it` (real worker), `ApplicationJourneyTest` (form → worker → recruiter screens), `CompleteJobApplicationScreeningTest`, `EventContractsTest` |
+| …including when the AI fails (retries, then a clear final state) | `AsyncEnrichmentTest::test_when_the_llm_keeps_failing_the_message_is_retried_then_the_screening_is_marked_as_failed` |
+| The list is newest first | `SearchJobApplicationsTest::test_applications_are_listed_newest_first`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
+| Real-time filtering by status and position, and search by name or email | `SearchJobApplicationsTest` (each filter, search, combined filters), `BrowseJobApplicationsTest::test_it_filters_by_status_and_position_and_searches_by_name_or_email`, `…::test_live_filtering_only_renders_the_results_frame` |
+| The detail view shows all data, including the enrichment outputs | `JobApplicationDetailTest::test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps`, `FindJobApplicationTest::test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps` |
+| The score is visible in the list | `SearchJobApplicationsTest::test_the_list_shows_the_ai_score_once_screened`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
 
 ## Enforced, not just drawn
 
@@ -394,7 +405,21 @@ Every acceptance criterion of the brief (submission, enrichment, newest-first li
 
 ## Beyond the brief
 
-The brief asks for the apply → enrich → browse flow; the README lists the extras added on top. Two of them have an architectural angle: abuse protection and the grouping of applications by email.
+The brief asks for the apply → enrich → browse flow. These were added on top, because a real recruiting tool would need them; none of them changes how the required flows work.
+
+| Extra | What it adds |
+|---|---|
+| **Recruiter area behind a login** | Candidates apply without an account; listing and reviewing applications requires signing in. |
+| **Abuse protection** | The apply form accepts 5 valid applications per IP every 15 minutes (`APPLY_RATE_LIMIT`; raise it in `.env.local` for heavy manual testing), answering `429` beyond that; the login allows 5 failed attempts per minute. |
+| **Resilient AI enrichment** | A failing (mocked) LLM is retried 3 times with back-off; then the application shows *AI unavailable* instead of staying pending forever. |
+| **Hiring pipeline** | Statuses with transitions guarded by the domain: one click to advance, an inline confirmation to reject, a stepper showing the stage. |
+| **Applications grouped by email** | Each row shows how many applications came from its email (linking to all of them) and the detail page lists the others. Grouped on the read side only, because the email isn't verified (see below). |
+| **Overview** | Totals, ongoing analyses, interviews and average score; status tabs with counts; applications per offer for recruiters. |
+| **Sorting and pagination** | Click any column to sort (status in pipeline order, unscored applications last); first/previous/numbered/next/last pages and a page size. All of it in the URL, combined with the filters. |
+| **UI quality** | Dark mode, keyboard and screen-reader friendly, toasts, works without JavaScript (filters fall back to a plain form). |
+| **Enforced architecture** | Deptrac, PHPStan level max and CI on every pull request. |
+
+The reasons behind each one are in the [decision log](PLAN.md). Two of them have an architectural angle: abuse protection and the grouping of applications by email.
 
 **Abuse protection lives at the edge.** Every valid application costs a write and an AI analysis, so the apply form accepts at most `APPLY_RATE_LIMIT` (5) valid submissions per client IP every 15 minutes (sliding window, Symfony RateLimiter). Beyond that it answers `429` with `Retry-After` and keeps what the candidate typed; invalid submissions don't count, so a typo never locks a person out. The recruiter login is throttled the same way (5 failed attempts per minute for an email + IP pair).
 

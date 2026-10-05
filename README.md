@@ -47,57 +47,19 @@ make test   # all tests
 make qa     # PHP-CS-Fixer (dry-run) + PHPStan level max + Deptrac
 ```
 
-**215 tests**, all run in Docker against a real PostgreSQL test database:
-
-| Level | Tests | What they prove |
-|---|---|---|
-| Unit | 134 | Business rules, use cases, mocked-LLM scoring, JSON serializer — no kernel, no database |
-| Integration | 81 | Doctrine round-trips and SQL read models, the buses, contract tests between contexts, a real Messenger worker end to end, and functional tests of every page (incl. access control) |
-
-**Quality gates**: PHPStan at level max, PHP-CS-Fixer (`@Symfony`), and **Deptrac**, which fails the build if the domain depends on the framework or if one bounded context imports another. GitHub Actions runs `make init`, `make qa` and `make test` on every pull request.
-
-### Acceptance criteria → tests
-
-| Acceptance criterion | Proven by |
-|---|---|
-| Submitting an application creates a record with `appliedAt` and the default status | `ApplyToJobOfferTest::test_submitting_stores_a_received_application_and_queues_the_ai_enrichment`, `SubmitJobApplicationHandlerTest::test_it_stores_a_received_application_applied_now`, `JobApplicationTest::test_a_submitted_application_is_received_with_its_applied_at_date` |
-| Asynchronous enrichment adds summary and score to that application | `AsyncEnrichmentTest::test_a_submitted_application_is_pending_until_the_worker_enriches_it` (real worker), `ApplicationJourneyTest` (form → worker → recruiter screens), `CompleteJobApplicationScreeningTest`, `EventContractsTest` |
-| …including when the AI fails (retries, then a clear final state) | `AsyncEnrichmentTest::test_when_the_llm_keeps_failing_the_message_is_retried_then_the_screening_is_marked_as_failed` |
-| The list is newest first | `SearchJobApplicationsTest::test_applications_are_listed_newest_first`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
-| Real-time filtering by status and position, and search by name or email | `SearchJobApplicationsTest` (each filter, search, combined filters), `BrowseJobApplicationsTest::test_it_filters_by_status_and_position_and_searches_by_name_or_email`, `…::test_live_filtering_only_renders_the_results_frame` |
-| The detail view shows all data, including the enrichment outputs | `JobApplicationDetailTest::test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps`, `FindJobApplicationTest::test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps` |
-| The score is visible in the list | `SearchJobApplicationsTest::test_the_list_shows_the_ai_score_once_screened`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
+**231 tests** (148 unit, 83 integration), all run in Docker against a real PostgreSQL test database: business rules, SQL read models, contracts between contexts, a real Messenger worker, every page, and the whole journey from the apply form to the recruiter screens. **Deptrac** fails the build if the domain depends on the framework or one bounded context imports another; GitHub Actions runs `make init`, `make qa` and `make test` on every pull request. Each acceptance criterion of the brief and the tests that prove it: [Architecture → Testing strategy](docs/ARCHITECTURE.md#testing-strategy).
 
 ## Beyond the brief
 
-Not asked for, added because a real recruiting tool would need them. None of them changes how the required flows work.
-
-| Extra | What it adds |
-|---|---|
-| **Recruiter area behind a login** | Candidates apply without an account; listing and reviewing applications requires signing in. |
-| **Abuse protection** | The apply form accepts 5 valid applications per IP every 15 minutes (`APPLY_RATE_LIMIT`; raise it in `.env.local` for heavy manual testing), answering `429` beyond that; the login allows 5 failed attempts per minute. |
-| **Resilient AI enrichment** | A failing (mocked) LLM is retried 3 times with back-off; then the application shows *AI unavailable* instead of staying pending forever. |
-| **Hiring pipeline** | Statuses with transitions guarded by the domain: one click to advance, an inline confirmation to reject, a stepper showing the stage. |
-| **Applications grouped by email** | Each row shows how many applications came from its email (linking to all of them) and the detail page lists the others. Grouped on the read side only, because the email isn't verified: [why](docs/ARCHITECTURE.md#beyond-the-brief). |
-| **Overview** | Totals, ongoing analyses, interviews and average score; status tabs with counts; applications per offer for recruiters. |
-| **Sorting and pagination** | Click any column to sort (status in pipeline order, unscored applications last); first/previous/numbered/next/last pages and a page size. All of it in the URL, combined with the filters. |
-| **UI quality** | Dark mode, keyboard and screen-reader friendly, toasts, works without JavaScript (filters fall back to a plain form). |
-| **Enforced architecture** | Deptrac, PHPStan level max and CI on every pull request. |
-
-The reasons behind each one are in the [decision log](docs/PLAN.md); abuse protection and the email grouping are described in [Architecture → Beyond the brief](docs/ARCHITECTURE.md#beyond-the-brief).
+Also added, because a real recruiting tool would need them: a recruiter area behind a login, abuse protection (rate limiting and login throttling), a hiring pipeline guarded by the domain, sorting and pagination, applications grouped by email, an overview with counts, and dark mode with keyboard and screen-reader support. None of them changes the required flows. What each one adds and why: [Architecture → Beyond the brief](docs/ARCHITECTURE.md#beyond-the-brief).
 
 ## Architecture in a nutshell
 
-```
-src/
-├── Recruitment/   job offers & applications   ─┐  each one: Domain (pure PHP rules)
-├── Screening/     AI analysis of CVs          ─┤            Application (use cases)
-└── Shared/        shared kernel, buses, login ─┘            Infrastructure (Symfony, Doctrine, RabbitMQ, UI)
-```
+Two bounded contexts, **Recruitment** (job offers and applications) and **Screening** (AI analysis of CVs), each split into Domain (pure PHP rules), Application (use cases) and Infrastructure (Symfony, Doctrine, RabbitMQ, UI), plus a small shared kernel.
 
 - **Dependencies point inwards**: the domain knows nothing about Symfony, Doctrine or RabbitMQ (verified by Deptrac).
 - **CQRS**: commands change state inside a transaction, queries read straight into DTOs with SQL, events notify.
-- **Two bounded contexts talk only through events over RabbitMQ**, as JSON identified by a stable event name; each consumer owns the class it reads them with.
+- **The contexts talk only through events over RabbitMQ**, as JSON identified by a stable event name; each consumer owns the class it reads them with.
 
 ```
 submit ─▶ JobApplicationSubmitted ══RabbitMQ══▶ Screening (mock LLM) ══▶ CvScreened ──▶ application gets summary + score

@@ -374,8 +374,19 @@ body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "
 | Integración | Los adaptadores funcionan de verdad: ida y vuelta con Doctrine, modelos de lectura SQL, índices, buses | Base de datos PostgreSQL de test; cada test se revierte (dama/doctrine-test-bundle); datos creados con Foundry a través del comportamiento del dominio. |
 | Contrato | Cada consumidor entiende lo que envía cada publicador | Serializador JSON real: entra la clase del publicador, sale la del consumidor. |
 | Asíncrono de punta a punta | Envío → Screening → resultado, incluidos los reintentos y el camino de fallo | Un `Worker` real de Messenger sobre el transporte en memoria con serialización activada. |
+| Funcional | Cada pantalla, el control de acceso, el rate limiting y el recorrido completo desde el formulario hasta las pantallas del reclutador | `WebTestCase` contra el kernel real; el test del recorrido ejecuta el worker entre el envío y la visita del reclutador. |
 
-Cada criterio de aceptación del enunciado (envío, enriquecimiento, listado de más reciente a más antigua con filtros y búsqueda, detalle) tiene al menos un test de integración o de punta a punta.
+### Criterios de aceptación → tests
+
+| Criterio de aceptación | Lo demuestra |
+|---|---|
+| Enviar una candidatura crea un registro con `appliedAt` y el estado por defecto | `ApplyToJobOfferTest::test_submitting_stores_a_received_application_and_queues_the_ai_enrichment`, `SubmitJobApplicationHandlerTest::test_it_stores_a_received_application_applied_now`, `JobApplicationTest::test_a_submitted_application_is_received_with_its_applied_at_date` |
+| El enriquecimiento asíncrono añade resumen y score a esa candidatura | `AsyncEnrichmentTest::test_a_submitted_application_is_pending_until_the_worker_enriches_it` (worker real), `ApplicationJourneyTest` (formulario → worker → pantallas del reclutador), `CompleteJobApplicationScreeningTest`, `EventContractsTest` |
+| …también cuando la IA falla (reintentos y luego un estado final claro) | `AsyncEnrichmentTest::test_when_the_llm_keeps_failing_the_message_is_retried_then_the_screening_is_marked_as_failed` |
+| El listado va de más reciente a más antigua | `SearchJobApplicationsTest::test_applications_are_listed_newest_first`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
+| Filtrado en tiempo real por estado y posición, y búsqueda por nombre o email | `SearchJobApplicationsTest` (cada filtro, búsqueda, filtros combinados), `BrowseJobApplicationsTest::test_it_filters_by_status_and_position_and_searches_by_name_or_email`, `…::test_live_filtering_only_renders_the_results_frame` |
+| El detalle muestra todos los datos, incluidos los resultados del enriquecimiento | `JobApplicationDetailTest::test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps`, `FindJobApplicationTest::test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps` |
+| El score se ve en el listado | `SearchJobApplicationsTest::test_the_list_shows_the_ai_score_once_screened`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
 
 ## Verificado, no solo dibujado
 
@@ -394,7 +405,21 @@ Cada criterio de aceptación del enunciado (envío, enriquecimiento, listado de 
 
 ## Más allá del enunciado
 
-El enunciado pide el flujo candidatura → enriquecimiento → consulta; el README enumera los extras añadidos encima. Dos de ellos tienen una lectura de arquitectura: la protección contra abusos y la agrupación de candidaturas por email.
+El enunciado pide el flujo candidatura → enriquecimiento → consulta. Esto se añadió encima, porque una herramienta de reclutamiento real lo necesitaría; nada de ello cambia cómo funcionan los flujos pedidos.
+
+| Extra | Qué aporta |
+|---|---|
+| **Área de reclutador con login** | Los candidatos aplican sin cuenta; consultar y revisar candidaturas exige iniciar sesión. |
+| **Protección contra abusos** | El formulario acepta 5 candidaturas válidas por IP cada 15 minutos (`APPLY_RATE_LIMIT`; súbelo en `.env.local` si vas a probar mucho a mano) y responde `429` por encima; el login permite 5 intentos fallidos por minuto. |
+| **Enriquecimiento con IA resiliente** | Si el LLM (simulado) falla, se reintenta 3 veces con backoff; después la candidatura muestra *AI unavailable* en vez de quedarse pendiente para siempre. |
+| **Pipeline de contratación** | Estados con transiciones protegidas por el dominio: un clic para avanzar, confirmación en línea para rechazar y un stepper con la etapa. |
+| **Candidaturas agrupadas por email** | Cada fila muestra cuántas candidaturas llegaron desde su email (con enlace a todas) y el detalle lista las demás. Agrupadas solo en el lado de lectura, porque el email no está verificado (ver más abajo). |
+| **Resumen** | Totales, análisis en curso, entrevistas y score medio; pestañas de estado con contadores; candidaturas por oferta para los reclutadores. |
+| **Ordenación y paginación** | Ordenar por cualquier columna (el estado en orden del pipeline, las no puntuadas al final); primera/anterior/numeradas/siguiente/última y tamaño de página. Todo en la URL, combinado con los filtros. |
+| **Calidad de la UI** | Modo oscuro, usable con teclado y lector de pantalla, toasts, funciona sin JavaScript (los filtros pasan a ser un formulario normal). |
+| **Arquitectura verificada** | Deptrac, PHPStan nivel max y CI en cada pull request. |
+
+El porqué de cada uno está en el [registro de decisiones](PLAN.md). Dos de ellos tienen una lectura de arquitectura: la protección contra abusos y la agrupación de candidaturas por email.
 
 **La protección contra abusos vive en el borde.** Cada candidatura válida cuesta una escritura y un análisis de IA, así que el formulario acepta como máximo `APPLY_RATE_LIMIT` (5) envíos válidos por IP cada 15 minutos (ventana deslizante, Symfony RateLimiter). A partir de ahí responde `429` con `Retry-After` y conserva lo que el candidato había escrito; los envíos inválidos no cuentan, así que una errata nunca bloquea a una persona. El login del reclutador se limita igual (5 intentos fallidos por minuto para cada email + IP).
 
