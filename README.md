@@ -1,6 +1,6 @@
 # ATS PoC
 
-A minimal **Application Tracking System**: candidates apply to a job by pasting their CV as plain text, and an **asynchronous, mocked AI** enriches each application with a CV summary and a relevance score. Recruiters sign in to browse, filter and review applications.
+A minimal **Application Tracking System**: candidates apply to a job by pasting their CV as plain text, and an **asynchronous, mocked AI** enriches each application with a CV summary, a relevance score and a skill-by-skill match against the offer. Recruiters sign in to browse, filter and review applications.
 
 Built with **Symfony 8.1 / PHP 8.4** following **DDD + Hexagonal architecture + CQRS / events**, with **RabbitMQ** for asynchronous processing.
 
@@ -32,7 +32,7 @@ It builds the image, starts the containers, installs dependencies, runs the migr
 ## Try it
 
 1. **Apply** — open http://localhost:8080, pick a position, fill in your data and paste a CV. The application is stored immediately and you get a confirmation page.
-2. **Watch the AI work** — click *Open in the recruiter area* and sign in. The application shows *Analysing…* while the worker processes it (the mocked LLM takes ~1.5 s on purpose); the page updates by itself with the **summary** and the **score**.
+2. **Watch the AI work** — click *Open in the recruiter area* and sign in. The application shows *Analysing…* while the worker processes it (the mocked LLM takes ~1.5 s on purpose); the page updates by itself with the **summary**, the **score** and which of the offer's skills the CV covers, next to the offer itself.
 3. **Browse** — at `/applications`, type in the search box, pick a status tab or a position: results update as you type, newest first, with the score column. Click a column header to sort by it, page through the results and pick 10, 20 or 50 per page.
 4. **Move it along the pipeline** — on the detail page, advance the application one step (`received → in_review → interviewing → hired`) or reject it. Only valid transitions are offered.
 5. **See a failure handled** — apply with a CV that contains `[simulate-llm-failure]`: the worker retries 3 times with back-off and the application ends up *AI unavailable* instead of staying pending forever.

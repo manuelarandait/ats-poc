@@ -22,6 +22,8 @@ Este documento explica **cómo está organizada la aplicación y por qué**, en 
 14. [Más allá del enunciado](#más-allá-del-enunciado)
 15. [Trade-offs y próximos pasos](#trade-offs-y-próximos-pasos)
 
+
+
 ## La idea en una frase
 
 En una aplicación Symfony clásica **el framework está en el centro** y las reglas de negocio están repartidas dentro de él (atributos del ORM en las entidades, servicios que usan el `EntityManager`, atributos de validación en las entidades). Aquí se invierte: **las reglas de negocio están en el centro, en PHP puro, y Symfony, Doctrine y RabbitMQ son enchufes en el borde**.
@@ -29,7 +31,7 @@ En una aplicación Symfony clásica **el framework está en el centro** y las re
 La regla que lo sostiene todo: **las dependencias solo apuntan hacia dentro**. El dominio no sabe que Symfony existe; Symfony sí conoce el dominio. Deptrac lo verifica automáticamente (`make deptrac`), así que es una garantía, no una convención.
 
 ```
-┌──────────────────── Infrastructure ────────────────────┐
+┌──────────────────── Infrastructure ─────────────────────┐
 │  Controllers HTTP, Doctrine, RabbitMQ, Twig, mock IA    │
 │    ┌─────────────── Application ───────────────┐        │
 │    │  Casos de uso: SubmitJobApplication, …    │        │
@@ -40,6 +42,8 @@ La regla que lo sostiene todo: **las dependencias solo apuntan hacia dentro**. E
 └─────────────────────────────────────────────────────────┘
             las dependencias apuntan → hacia dentro
 ```
+
+
 
 ## Visión general del sistema
 
@@ -65,6 +69,10 @@ flowchart LR
     worker -- "lee / escribe" --> db
     worker -- "publica eventos" --> mq
 ```
+
+
+
+
 
 ## Estructura de carpetas
 
@@ -103,6 +111,8 @@ src/
     └── Infrastructure/                 adaptadores de buses sobre Messenger, serializador JSON de eventos, helpers DBAL, parámetros de paginación, login, extensiones Twig
 ```
 
+
+
 ### Domain: el núcleo
 
 Reglas de negocio y nada más: un email debe ser válido, una candidatura no puede saltar de `received` a `hired`, un resultado de IA repetido se ignora. Ni un `use Symfony\…` ni un `use Doctrine\…`.
@@ -123,27 +133,33 @@ Todo lo que depende de tecnología: controllers HTTP, repositorios de Doctrine y
 
 ## Symfony clásico → este proyecto
 
-| Symfony clásico | Aquí | Qué cambia |
-|---|---|---|
-| `Entity/JobApplication.php` con `#[ORM\Column]` | `Domain/…/JobApplication.php` + mapping XML en `Infrastructure/Persistence/Doctrine/Mapping` | Sigue siendo Doctrine: la metadata simplemente sale de la clase, y la entidad queda limpia. |
-| `Repository/…Repository extends ServiceEntityRepository` | Interfaz en `Domain` + `Doctrine…Repository` en `Infrastructure` | El dominio declara *qué* necesita (un **puerto**) y la infraestructura decide *cómo* (un **adaptador**): de ahí "ports & adapters". |
-| `#[Assert\Email]` en la entidad | Value object `Email::fromString()` (más validación en el formulario/DTO del borde) | La regla viaja con el dato: no puede existir un `Email` inválido en ningún sitio. |
-| `$entity->setStatus('hired')` | `$application->changeStatus(JobApplicationStatus::Hired, $now)` | Sin setters: solo métodos con nombre de negocio que protegen las reglas. El estado se puede leer (`public private(set)`) pero no modificar desde fuera. |
-| `Service/ApplicationService.php` | `Application/SubmitJobApplication/…Handler.php` | Un caso de uso por clase. |
-| Método de repositorio que devuelve entidades para un listado | Query `SearchJobApplications` + modelo de lectura SQL que devuelve DTOs | Las lecturas se saltan por completo el modelo de dominio. |
-| `EventSubscriber` / `MessageHandler` con `#[AsMessageHandler]` | Clase que implementa `DomainEventSubscriber`, conectada en `services.yaml` | Por debajo es el mismo Messenger; el caso de uso simplemente no lo sabe. |
-| `Controller/` | `Infrastructure/Http/` | Traduce HTTP → comando/query, nada más. |
-| State Processor / Provider de API Platform | Handler de comando / handler de query | La misma idea: los processors y providers de API Platform ya son adaptadores alrededor de un caso de uso. |
+
+| Symfony clásico                                                | Aquí                                                                                         | Qué cambia                                                                                                                                              |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Entity/JobApplication.php` con `#[ORM\Column]`                | `Domain/…/JobApplication.php` + mapping XML en `Infrastructure/Persistence/Doctrine/Mapping` | Sigue siendo Doctrine: la metadata simplemente sale de la clase, y la entidad queda limpia.                                                             |
+| `Repository/…Repository extends ServiceEntityRepository`       | Interfaz en `Domain` + `Doctrine…Repository` en `Infrastructure`                             | El dominio declara *qué* necesita (un **puerto**) y la infraestructura decide *cómo* (un **adaptador**): de ahí "ports & adapters".                     |
+| `#[Assert\Email]` en la entidad                                | Value object `Email::fromString()` (más validación en el formulario/DTO del borde)           | La regla viaja con el dato: no puede existir un `Email` inválido en ningún sitio.                                                                       |
+| `$entity->setStatus('hired')`                                  | `$application->changeStatus(JobApplicationStatus::Hired, $now)`                              | Sin setters: solo métodos con nombre de negocio que protegen las reglas. El estado se puede leer (`public private(set)`) pero no modificar desde fuera. |
+| `Service/ApplicationService.php`                               | `Application/SubmitJobApplication/…Handler.php`                                              | Un caso de uso por clase.                                                                                                                               |
+| Método de repositorio que devuelve entidades para un listado   | Query `SearchJobApplications` + modelo de lectura SQL que devuelve DTOs                      | Las lecturas se saltan por completo el modelo de dominio.                                                                                               |
+| `EventSubscriber` / `MessageHandler` con `#[AsMessageHandler]` | Clase que implementa `DomainEventSubscriber`, conectada en `services.yaml`                   | Por debajo es el mismo Messenger; el caso de uso simplemente no lo sabe.                                                                                |
+| `Controller/`                                                  | `Infrastructure/Http/`                                                                       | Traduce HTTP → comando/query, nada más.                                                                                                                 |
+| State Processor / Provider de API Platform                     | Handler de comando / handler de query                                                        | La misma idea: los processors y providers de API Platform ya son adaptadores alrededor de un caso de uso.                                               |
+
+
+
 
 ## Bounded contexts
 
 `Recruitment` (candidaturas, pipeline de contratación) y `Screening` (analizar un CV con IA) hablan idiomas distintos y cambian por motivos distintos. Si uno importara clases del otro acabarían siendo un único bloque acoplado, así que **solo se comunican mediante eventos a través de RabbitMQ**, y Deptrac falla si alguno importa al otro.
 
-| Contexto | Es dueño de | Publica | Consume |
-|---|---|---|---|
-| **Recruitment** | Ofertas, candidaturas (candidato, CV, estado de contratación, resultado de la IA cuando llega) | `recruitment.job_application.submitted` | `screening.cv_screened`, `screening.cv_screening_failed` |
-| **Screening** | Nada persistente: analiza un CV frente a una posición a través de un puerto de IA | `screening.cv_screened`, `screening.cv_screening_failed` | `recruitment.job_application.submitted` |
-| **Shared** | Solo el shared kernel: clases base de agregados y eventos, `Uuid`, paginación, interfaces de los buses | — | — |
+
+| Contexto        | Es dueño de                                                                                            | Publica                                                  | Consume                                                  |
+| --------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- | -------------------------------------------------------- |
+| **Recruitment** | Ofertas, candidaturas (candidato, CV, estado de contratación, resultado de la IA cuando llega)         | `recruitment.job_application.submitted`                  | `screening.cv_screened`, `screening.cv_screening_failed` |
+| **Screening**   | Nada persistente: analiza un CV frente a una posición a través de un puerto de IA                      | `screening.cv_screened`, `screening.cv_screening_failed` | `recruitment.job_application.submitted`                  |
+| **Shared**      | Solo el shared kernel: clases base de agregados y eventos, `Uuid`, paginación, interfaces de los buses | —                                                        | —                                                        |
+
 
 Screening **no guarda estado** a propósito: el resultado que produce pertenece a la candidatura, así que se almacena una sola vez, en Recruitment.
 
@@ -185,11 +201,14 @@ classDiagram
         <<value object>>
         string summary
         AiScore score (0–100)
+        SkillMatch[] skills
     }
     JobApplication --> Candidate
     JobApplication --> AiScreening
     JobApplication ..> JobOffer : referencia por id
 ```
+
+
 
 Una candidatura vive dos ciclos de vida **independientes**: el pipeline de contratación, que mueven los reclutadores, y el screening de la IA, que avanza con el enriquecimiento asíncrono. Un reclutador puede pasar una candidatura a `in_review` antes de que la IA haya respondido.
 
@@ -209,6 +228,8 @@ stateDiagram-v2
     }
 ```
 
+
+
 ```mermaid
 stateDiagram-v2
     direction LR
@@ -221,28 +242,34 @@ stateDiagram-v2
     }
 ```
 
+
+
 Reglas que protege el agregado: las transiciones solo siguen el pipeline (los estados finales son finales); un resultado de screening repetido se ignora; un fallo que llega tarde nunca sobrescribe un screening completado. Cada cambio registra un evento de dominio.
 
 ## Casos de uso (CQRS)
 
 Los **comandos** cambian el estado y no devuelven nada; las **queries** devuelven datos y no cambian nada. Viajan por buses separados porque su semántica es distinta: los comandos se ejecutan dentro de una transacción de base de datos, las queries pueden saltarse el modelo de dominio y los eventos pueden tener cero o muchos subscribers.
 
-| Tipo | Caso de uso | Lo dispara | Resultado |
-|---|---|---|---|
-| Comando | `SubmitJobApplication` | Candidato (formulario de envío) | Candidatura `received`, screening `pending`, `JobApplicationSubmitted` |
-| Comando | `ChangeJobApplicationStatus` | Reclutador | Estado avanzado en el pipeline, `JobApplicationStatusChanged` |
-| Comando | `CompleteJobApplicationScreening` | Evento `cv_screened` de Screening | Resumen + score asociados, `JobApplicationScreened` |
-| Comando | `FailJobApplicationScreening` | Evento `cv_screening_failed` de Screening | Screening `failed`, `JobApplicationScreeningFailed` |
-| Subscriber | `ScreenCvOnJobApplicationSubmitted` (Screening) | Evento `submitted` de Recruitment | Llama al puerto de IA y publica `CvScreened` |
-| Query | `SearchJobApplications` | Página de candidaturas | Página de filas filtradas por estado / posición, búsqueda por nombre / email, ordenadas por cualquier columna (más recientes primero por defecto), cada una con el número de candidaturas de su email |
-| Query | `FindJobApplicationStats` | Página de candidaturas, página de ofertas | Conteos por estado y por oferta, análisis en curso y score medio |
-| Query | `FindJobApplication` | Página de detalle | Todo, incluidos el CV, los resultados de la IA, las fechas, los siguientes estados permitidos y las demás candidaturas del mismo email |
-| Query | `ListJobOffers` | Página de ofertas, filtro por posición | Catálogo de ofertas |
-| Query | `FindJobOffer` | Página de envío, página de confirmación | Una oferta |
+
+| Tipo       | Caso de uso                                     | Lo dispara                                | Resultado                                                                                                                                                                                             |
+| ---------- | ----------------------------------------------- | ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Comando    | `SubmitJobApplication`                          | Candidato (formulario de envío)           | Candidatura `received`, screening `pending`, `JobApplicationSubmitted`                                                                                                                                |
+| Comando    | `ChangeJobApplicationStatus`                    | Reclutador                                | Estado avanzado en el pipeline, `JobApplicationStatusChanged`                                                                                                                                         |
+| Comando    | `CompleteJobApplicationScreening`               | Evento `cv_screened` de Screening         | Resumen + score asociados, `JobApplicationScreened`                                                                                                                                                   |
+| Comando    | `FailJobApplicationScreening`                   | Evento `cv_screening_failed` de Screening | Screening `failed`, `JobApplicationScreeningFailed`                                                                                                                                                   |
+| Subscriber | `ScreenCvOnJobApplicationSubmitted` (Screening) | Evento `submitted` de Recruitment         | Llama al puerto de IA y publica `CvScreened`                                                                                                                                                          |
+| Query      | `SearchJobApplications`                         | Página de candidaturas                    | Página de filas filtradas por estado / posición, búsqueda por nombre / email, ordenadas por cualquier columna (más recientes primero por defecto), cada una con el número de candidaturas de su email |
+| Query      | `FindJobApplicationStats`                       | Página de candidaturas, página de ofertas | Conteos por estado y por oferta, análisis en curso y score medio                                                                                                                                      |
+| Query      | `FindJobApplication`                            | Página de detalle                         | Todo, incluidos el CV, los resultados de la IA, las fechas, los siguientes estados permitidos y las demás candidaturas del mismo email                                                                |
+| Query      | `ListJobOffers`                                 | Página de ofertas, filtro por posición    | Catálogo de ofertas                                                                                                                                                                                   |
+| Query      | `FindJobOffer`                                  | Página de envío, página de confirmación   | Una oferta                                                                                                                                                                                            |
+
 
 Recruitment reacciona a los eventos de Screening **traduciéndolos a comandos propios**: así el cambio pasa por el command bus como cualquier otra escritura (transacción, reglas de negocio, eventos).
 
 ## Flujos
+
+
 
 ### Enviar una candidatura (parte síncrona)
 
@@ -271,6 +298,10 @@ sequenceDiagram
     H-->>C: redirección — el análisis de IA sigue en segundo plano
 ```
 
+
+
+
+
 ### Enriquecimiento con IA (asíncrono, en el worker)
 
 ```mermaid
@@ -284,12 +315,16 @@ sequenceDiagram
 
     MQ->>SC: recruitment.job_application.submitted (CV + posición)
     SC->>AI: analyse(cv, posición)
-    AI-->>SC: resumen + score
+    AI-->>SC: resumen + score + desglose de skills
     SC->>MQ: screening.cv_screened
     MQ->>RC: screening.cv_screened
     RC->>DB: completeScreening(resumen, score) — idempotente
     Note over DB: el listado y el detalle ya muestran resumen + score
 ```
+
+
+
+
 
 ### Cuando la IA sigue fallando
 
@@ -312,6 +347,10 @@ sequenceDiagram
     RC->>RC: failScreening() — la candidatura ya no se queda "pending" para siempre
 ```
 
+
+
+
+
 ### Lectura (lado de queries)
 
 ```mermaid
@@ -330,6 +369,8 @@ sequenceDiagram
     RM-->>H: JobApplicationPage de DTOs
 ```
 
+
+
 En el lado de lectura no se carga ningún agregado: al leer no hay reglas que proteger, así que SQL directo a DTOs planos es más simple y más rápido.
 
 ## Contratos entre contextos
@@ -346,78 +387,101 @@ body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "
 - **Tests de contrato guiados por el consumidor**: envían cada evento publicado por el serializador real y comprueban que la clase del consumidor lo reconstruye. Un campo renombrado hace fallar un test, no producción.
 - Solo los eventos que cruzan una frontera se envían a RabbitMQ; el resto se quedan dentro del proceso.
 - **Event-carried state transfer**: `JobApplicationSubmitted` lleva el CV y la posición, así que Screening nunca tiene que consultar a Recruitment.
+- **Los contratos evolucionan de forma aditiva**: `screening.cv_screened` ganó una lista `skills` (el desglose skill a skill); Recruitment lee una lista ausente como "sin desglose", así que los eventos publicados antes del cambio se siguen entendiendo (lo cubre un test de contrato).
+
+
 
 ## Fiabilidad
 
-| Riesgo | Cómo se cubre |
-|---|---|
-| Reaccionar a datos que se han revertido | Los eventos se retienen hasta que la transacción del comando hace commit. |
-| Entrega duplicada (RabbitMQ entrega *al menos una vez*) | El agregado es idempotente: un resultado repetido o un fallo tardío no cambian nada. |
-| Fallos transitorios de la IA | Messenger reintenta 3 veces con backoff exponencial (1 s, 2 s, 4 s). |
-| Fallos permanentes de la IA | Al agotarse los reintentos se publica el hecho `CvScreeningFailed` y el mensaje original se conserva en el transporte de fallidos (`messenger:failed:show` / `retry`). |
-| Mensaje desconocido o mal formado | La decodificación falla de forma explícita en lugar de procesar un evento a medio leer. |
-| Broker caído justo después de un commit | **No está cubierto** (trade-off conocido): el evento se perdería. Un *transactional outbox* cerraría este hueco. |
+
+| Riesgo                                                  | Cómo se cubre                                                                                                                                                          |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Reaccionar a datos que se han revertido                 | Los eventos se retienen hasta que la transacción del comando hace commit.                                                                                              |
+| Entrega duplicada (RabbitMQ entrega *al menos una vez*) | El agregado es idempotente: un resultado repetido o un fallo tardío no cambian nada.                                                                                   |
+| Fallos transitorios de la IA                            | Messenger reintenta 3 veces con backoff exponencial (1 s, 2 s, 4 s).                                                                                                   |
+| Fallos permanentes de la IA                             | Al agotarse los reintentos se publica el hecho `CvScreeningFailed` y el mensaje original se conserva en el transporte de fallidos (`messenger:failed:show` / `retry`). |
+| Mensaje desconocido o mal formado                       | La decodificación falla de forma explícita en lugar de procesar un evento a medio leer.                                                                                |
+| Broker caído justo después de un commit                 | **No está cubierto** (trade-off conocido): el evento se perdería. Un *transactional outbox* cerraría este hueco.                                                       |
+
+
+
 
 ## Persistencia
 
 - **Mapping en XML** dentro de Infrastructure, para que las entidades no lleven atributos del ORM (Doctrine ORM 3 eliminó el mapping en YAML).
-- **Los value objects** se convierten en columnas mediante tipos DBAL propios (`Email`, `FullName`, ids…); `Candidate` y `AiScreening` son embeddables (columnas `candidate_*` y `ai_*`). Doctrine no sabe expresar un embeddable *nulo*, así que un pequeño listener `postLoad` convierte un `AiScreening` con todo a NULL de nuevo en `null`.
+- **Los value objects** se convierten en columnas mediante tipos DBAL propios (`Email`, `FullName`, ids…); `Candidate` y `AiScreening` son embeddables (columnas `candidate_`* y `ai_*`). Doctrine no sabe expresar un embeddable *nulo*, así que un pequeño listener `postLoad` convierte un `AiScreening` con todo a NULL de nuevo en `null`.
 - **Los agregados se referencian por id** (una candidatura guarda `jobOfferId`, no una asociación de Doctrine), así que no hay foreign key entre ellos; la integridad la comprueba el caso de uso.
 - **Índices** para el listado: `(applied_at, id)` para el orden de más reciente a más antigua, `status` y `job_offer_id` para los filtros, `candidate_email` para agrupar las candidaturas del mismo email, e índices GIN `pg_trgm` para la búsqueda "contiene" por nombre o email. Los índices GIN se declaran a Doctrine con un listener de esquema, para que las migraciones nunca intenten borrarlos.
 - **Los ids son UUID v7**: los genera quien lanza el comando (los comandos no devuelven nada) y están ordenados por tiempo de forma natural.
 
+
+
 ## Estrategia de tests
 
-| Nivel | Qué demuestra | Cómo |
-|---|---|---|
-| Unitario | Reglas de negocio, orquestación de los casos de uso, puntuación del LLM simulado, serializador | PHPUnit puro, Object Mothers, repositorios en memoria, buses espía. Sin kernel ni BD: milisegundos. |
-| Integración | Los adaptadores funcionan de verdad: ida y vuelta con Doctrine, modelos de lectura SQL, índices, buses | Base de datos PostgreSQL de test; cada test se revierte (dama/doctrine-test-bundle); datos creados con Foundry a través del comportamiento del dominio. |
-| Contrato | Cada consumidor entiende lo que envía cada publicador | Serializador JSON real: entra la clase del publicador, sale la del consumidor. |
-| Asíncrono de punta a punta | Envío → Screening → resultado, incluidos los reintentos y el camino de fallo | Un `Worker` real de Messenger sobre el transporte en memoria con serialización activada. |
-| Funcional | Cada pantalla, el control de acceso, el rate limiting y el recorrido completo desde el formulario hasta las pantallas del reclutador | `WebTestCase` contra el kernel real; el test del recorrido ejecuta el worker entre el envío y la visita del reclutador. |
+
+| Nivel                      | Qué demuestra                                                                                                                        | Cómo                                                                                                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Unitario                   | Reglas de negocio, orquestación de los casos de uso, puntuación del LLM simulado, serializador                                       | PHPUnit puro, Object Mothers, repositorios en memoria, buses espía. Sin kernel ni BD: milisegundos.                                                     |
+| Integración                | Los adaptadores funcionan de verdad: ida y vuelta con Doctrine, modelos de lectura SQL, índices, buses                               | Base de datos PostgreSQL de test; cada test se revierte (dama/doctrine-test-bundle); datos creados con Foundry a través del comportamiento del dominio. |
+| Contrato                   | Cada consumidor entiende lo que envía cada publicador                                                                                | Serializador JSON real: entra la clase del publicador, sale la del consumidor.                                                                          |
+| Asíncrono de punta a punta | Envío → Screening → resultado, incluidos los reintentos y el camino de fallo                                                         | Un `Worker` real de Messenger sobre el transporte en memoria con serialización activada.                                                                |
+| Funcional                  | Cada pantalla, el control de acceso, el rate limiting y el recorrido completo desde el formulario hasta las pantallas del reclutador | `WebTestCase` contra el kernel real; el test del recorrido ejecuta el worker entre el envío y la visita del reclutador.                                 |
+
+
+
 
 ### Criterios de aceptación → tests
 
-| Criterio de aceptación | Lo demuestra |
-|---|---|
-| Enviar una candidatura crea un registro con `appliedAt` y el estado por defecto | `ApplyToJobOfferTest::test_submitting_stores_a_received_application_and_queues_the_ai_enrichment`, `SubmitJobApplicationHandlerTest::test_it_stores_a_received_application_applied_now`, `JobApplicationTest::test_a_submitted_application_is_received_with_its_applied_at_date` |
-| El enriquecimiento asíncrono añade resumen y score a esa candidatura | `AsyncEnrichmentTest::test_a_submitted_application_is_pending_until_the_worker_enriches_it` (worker real), `ApplicationJourneyTest` (formulario → worker → pantallas del reclutador), `CompleteJobApplicationScreeningTest`, `EventContractsTest` |
-| …también cuando la IA falla (reintentos y luego un estado final claro) | `AsyncEnrichmentTest::test_when_the_llm_keeps_failing_the_message_is_retried_then_the_screening_is_marked_as_failed` |
-| El listado va de más reciente a más antigua | `SearchJobApplicationsTest::test_applications_are_listed_newest_first`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
-| Filtrado en tiempo real por estado y posición, y búsqueda por nombre o email | `SearchJobApplicationsTest` (cada filtro, búsqueda, filtros combinados), `BrowseJobApplicationsTest::test_it_filters_by_status_and_position_and_searches_by_name_or_email`, `…::test_live_filtering_only_renders_the_results_frame` |
-| El detalle muestra todos los datos, incluidos los resultados del enriquecimiento | `JobApplicationDetailTest::test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps`, `FindJobApplicationTest::test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps` |
-| El score se ve en el listado | `SearchJobApplicationsTest::test_the_list_shows_the_ai_score_once_screened`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
+
+| Criterio de aceptación                                                           | Lo demuestra                                                                                                                                                                                                                                                                     |
+| -------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Enviar una candidatura crea un registro con `appliedAt` y el estado por defecto  | `ApplyToJobOfferTest::test_submitting_stores_a_received_application_and_queues_the_ai_enrichment`, `SubmitJobApplicationHandlerTest::test_it_stores_a_received_application_applied_now`, `JobApplicationTest::test_a_submitted_application_is_received_with_its_applied_at_date` |
+| El enriquecimiento asíncrono añade resumen y score a esa candidatura             | `AsyncEnrichmentTest::test_a_submitted_application_is_pending_until_the_worker_enriches_it` (worker real), `ApplicationJourneyTest` (formulario → worker → pantallas del reclutador), `CompleteJobApplicationScreeningTest`, `EventContractsTest`                                |
+| …también cuando la IA falla (reintentos y luego un estado final claro)           | `AsyncEnrichmentTest::test_when_the_llm_keeps_failing_the_message_is_retried_then_the_screening_is_marked_as_failed`                                                                                                                                                             |
+| El listado va de más reciente a más antigua                                      | `SearchJobApplicationsTest::test_applications_are_listed_newest_first`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score`                                                                                                                      |
+| Filtrado en tiempo real por estado y posición, y búsqueda por nombre o email     | `SearchJobApplicationsTest` (cada filtro, búsqueda, filtros combinados), `BrowseJobApplicationsTest::test_it_filters_by_status_and_position_and_searches_by_name_or_email`, `…::test_live_filtering_only_renders_the_results_frame`                                              |
+| El detalle muestra todos los datos, incluidos los resultados del enriquecimiento | `JobApplicationDetailTest::test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps`, `FindJobApplicationTest::test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps`                                                                                 |
+| El score se ve en el listado                                                     | `SearchJobApplicationsTest::test_the_list_shows_the_ai_score_once_screened`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score`                                                                                                                 |
+
+
+
 
 ## Verificado, no solo dibujado
 
-| Regla | La comprueba |
-|---|---|
-| El dominio no depende del framework ni del ORM | Deptrac |
-| Application no depende del framework | Deptrac |
-| Los contextos nunca se importan entre sí | Deptrac |
-| Los tipos son correctos | PHPStan (nivel max) |
-| Estándar de código | PHP-CS-Fixer (`@Symfony`) |
-| Las reglas de negocio se comportan como se especifica | Tests unitarios (sin kernel ni BD) |
-| Los adaptadores funcionan con PostgreSQL / Messenger reales | Tests de integración |
-| Los contextos siguen entendiendo los eventos del otro | Tests de contrato |
-| El área de reclutador exige iniciar sesión; las páginas del candidato siguen públicas | Tests funcionales |
-| Todo lo anterior en cada pull request | GitHub Actions (`make qa`, `make test` dentro de Docker) |
+
+| Regla                                                                                 | La comprueba                                             |
+| ------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| El dominio no depende del framework ni del ORM                                        | Deptrac                                                  |
+| Application no depende del framework                                                  | Deptrac                                                  |
+| Los contextos nunca se importan entre sí                                              | Deptrac                                                  |
+| Los tipos son correctos                                                               | PHPStan (nivel max)                                      |
+| Estándar de código                                                                    | PHP-CS-Fixer (`@Symfony`)                                |
+| Las reglas de negocio se comportan como se especifica                                 | Tests unitarios (sin kernel ni BD)                       |
+| Los adaptadores funcionan con PostgreSQL / Messenger reales                           | Tests de integración                                     |
+| Los contextos siguen entendiendo los eventos del otro                                 | Tests de contrato                                        |
+| El área de reclutador exige iniciar sesión; las páginas del candidato siguen públicas | Tests funcionales                                        |
+| Todo lo anterior en cada pull request                                                 | GitHub Actions (`make qa`, `make test` dentro de Docker) |
+
+
+
 
 ## Más allá del enunciado
 
 El enunciado pide el flujo candidatura → enriquecimiento → consulta. Esto se añadió encima, porque una herramienta de reclutamiento real lo necesitaría; nada de ello cambia cómo funcionan los flujos pedidos.
 
-| Extra | Qué aporta |
-|---|---|
-| **Área de reclutador con login** | Los candidatos aplican sin cuenta; consultar y revisar candidaturas exige iniciar sesión. |
-| **Protección contra abusos** | El formulario acepta 5 candidaturas válidas por IP cada 15 minutos (`APPLY_RATE_LIMIT`; súbelo en `.env.local` si vas a probar mucho a mano) y responde `429` por encima; el login permite 5 intentos fallidos por minuto. |
-| **Enriquecimiento con IA resiliente** | Si el LLM (simulado) falla, se reintenta 3 veces con backoff; después la candidatura muestra *AI unavailable* en vez de quedarse pendiente para siempre. |
-| **Pipeline de contratación** | Estados con transiciones protegidas por el dominio: un clic para avanzar, confirmación en línea para rechazar y un stepper con la etapa. |
-| **Candidaturas agrupadas por email** | Cada fila muestra cuántas candidaturas llegaron desde su email (con enlace a todas) y el detalle lista las demás. Agrupadas solo en el lado de lectura, porque el email no está verificado (ver más abajo). |
-| **Resumen** | Totales, análisis en curso, entrevistas y score medio; pestañas de estado con contadores; candidaturas por oferta para los reclutadores. |
-| **Ordenación y paginación** | Ordenar por cualquier columna (el estado en orden del pipeline, las no puntuadas al final); primera/anterior/numeradas/siguiente/última y tamaño de página. Todo en la URL, combinado con los filtros. |
-| **Calidad de la UI** | Modo oscuro, usable con teclado y lector de pantalla, toasts, funciona sin JavaScript (los filtros pasan a ser un formulario normal). |
-| **Arquitectura verificada** | Deptrac, PHPStan nivel max y CI en cada pull request. |
+
+| Extra                                 | Qué aporta                                                                                                                                                                                                                 |
+| ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Área de reclutador con login**      | Los candidatos aplican sin cuenta; consultar y revisar candidaturas exige iniciar sesión.                                                                                                                                  |
+| **Protección contra abusos**          | El formulario acepta 5 candidaturas válidas por IP cada 15 minutos (`APPLY_RATE_LIMIT`; súbelo en `.env.local` si vas a probar mucho a mano) y responde `429` por encima; el login permite 5 intentos fallidos por minuto. |
+| **Enriquecimiento con IA resiliente** | Si el LLM (simulado) falla, se reintenta 3 veces con backoff; después la candidatura muestra *AI unavailable* en vez de quedarse pendiente para siempre.                                                                   |
+| **Pipeline de contratación**          | Estados con transiciones protegidas por el dominio: un clic para avanzar, confirmación en línea para rechazar y un stepper con la etapa.                                                                                   |
+| **Candidaturas agrupadas por email**  | Cada fila muestra cuántas candidaturas llegaron desde su email (con enlace a todas) y el detalle lista las demás. Agrupadas solo en el lado de lectura, porque el email no está verificado (ver más abajo).                |
+| **Resumen**                           | Totales, análisis en curso, entrevistas y score medio; pestañas de estado con contadores; candidaturas por oferta para los reclutadores.                                                                                   |
+| **Ordenación y paginación**           | Ordenar por cualquier columna (el estado en orden del pipeline, las no puntuadas al final); primera/anterior/numeradas/siguiente/última y tamaño de página. Todo en la URL, combinado con los filtros.                     |
+| **Calidad de la UI**                  | Modo oscuro, usable con teclado y lector de pantalla, toasts, funciona sin JavaScript (los filtros pasan a ser un formulario normal).                                                                                      |
+| **Arquitectura verificada**           | Deptrac, PHPStan nivel max y CI en cada pull request.                                                                                                                                                                      |
+
 
 El porqué de cada uno está en el [registro de decisiones](PLAN.md). Dos de ellos tienen una lectura de arquitectura: la protección contra abusos y la agrupación de candidaturas por email.
 
@@ -441,5 +505,6 @@ Qué cambiaría de cara a producción:
 - **Búsqueda insensible a tildes** (`unaccent`) y paginación keyset para tablas muy grandes.
 - **Emails internacionalizados** (con caracteres no ASCII), que hoy rechaza el value object `Email`.
 - **Un almacén de usuarios real** (tabla de usuarios o SSO) en lugar de la cuenta de reclutador de demo en memoria.
-- **Un agregado `Candidate`, una vez verificado el email** (un enlace de confirmación o cuentas de candidato): con su id y su tabla, las candidaturas referenciándolo por id, email único, una migración que fusione los duplicados actuales y una forma de que el reclutador fusione o separe perfiles a mano. Hasta entonces, la agrupación se queda en el lado de lectura (ver [Más allá del enunciado](#más-allá-del-enunciado)).
+- **Un agregado** `Candidate`**, una vez verificado el email** (un enlace de confirmación o cuentas de candidato): con su id y su tabla, las candidaturas referenciándolo por id, email único, una migración que fusione los duplicados actuales y una forma de que el reclutador fusione o separe perfiles a mano. Hasta entonces, la agrupación se queda en el lado de lectura (ver [Más allá del enunciado](#más-allá-del-enunciado)).
 - **Rate limiting entre instancias**: los contadores viven en la caché de la aplicación, así que con varias instancias se compartirían en Redis, y detrás de un balanceador habría que configurar `trusted_proxies` para que la IP del cliente sea la real.
+

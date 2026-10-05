@@ -8,6 +8,7 @@ use App\Screening\Domain\CvAnalysis;
 use App\Screening\Domain\CvAnalysisUnavailable;
 use App\Screening\Domain\CvAnalyzer;
 use App\Screening\Domain\Position;
+use App\Screening\Domain\SkillMatch;
 use Symfony\Component\DependencyInjection\Attribute\Autowire;
 
 /**
@@ -18,8 +19,9 @@ use Symfony\Component\DependencyInjection\Attribute\Autowire;
  *            those listed after "Nice to have" weigh half)
  *          + 20% seniority (years of experience, capped at 8)
  *  - summary = the candidate's profile (role, years of experience, main
- *            skills in the order the CV lists them), then the fit for the
- *            position (matched skills, missing required / nice-to-have)
+ *            skills in the order the CV lists them)
+ *  - skills = every skill the position asks for, required or nice to have,
+ *            and whether the CV shows it (the fit, as structured data)
  *  - latency: sleeps MOCK_LLM_LATENCY_MS, so the UI shows "analysing…"
  *  - failures: MOCK_LLM_FAILURE_RATE (0–1) of calls fail at random, and a CV
  *    containing "[simulate-llm-failure]" always fails (deterministic demo/tests)
@@ -98,8 +100,6 @@ final readonly class FakeLlmCvAnalyzer implements CvAnalyzer
 
         [$mustHave, $niceToHave] = $this->askedSkills($position);
         $cvSkills = $this->skillsIn($cv);
-        $asked = [...$mustHave, ...$niceToHave];
-        $matched = array_values(array_intersect($asked, $cvSkills));
         $years = $this->yearsOfExperience($cv);
 
         $weightAsked = \count($mustHave) + self::NICE_TO_HAVE_WEIGHT * \count($niceToHave);
@@ -109,12 +109,10 @@ final readonly class FakeLlmCvAnalyzer implements CvAnalyzer
         $seniority = min($years, self::MAX_YEARS_COUNTED) / self::MAX_YEARS_COUNTED;
         $score = (int) round(80 * $coverage + 20 * $seniority);
 
-        return CvAnalysis::create($this->summary($cv, $position, [
-            'asked' => $asked,
-            'matched' => $matched,
-            'missingRequired' => array_values(array_diff($mustHave, $cvSkills)),
-            'missingNiceToHave' => array_values(array_diff($niceToHave, $cvSkills)),
-        ], $years), $score);
+        return CvAnalysis::create($this->profile($cv, $years), $score, [
+            ...array_map(static fn (string $skill): SkillMatch => new SkillMatch($skill, true, \in_array($skill, $cvSkills, true)), $mustHave),
+            ...array_map(static fn (string $skill): SkillMatch => new SkillMatch($skill, false, \in_array($skill, $cvSkills, true)), $niceToHave),
+        ]);
     }
 
     /**
@@ -163,25 +161,6 @@ final readonly class FakeLlmCvAnalyzer implements CvAnalyzer
         preg_match_all('/(\d{1,2})\+?\s*(?:years?|años)\b/iu', $cv, $matches);
 
         return [] === $matches[1] ? 0 : max(array_map(intval(...), $matches[1]));
-    }
-
-    /**
-     * @param array{asked: list<string>, matched: list<string>, missingRequired: list<string>, missingNiceToHave: list<string>} $skills
-     */
-    private function summary(string $cv, Position $position, array $skills, int $years): string
-    {
-        $profile = $this->profile($cv, $years);
-
-        if ([] === $skills['asked']) {
-            return $profile;
-        }
-
-        $fit = \sprintf(' Matches %d of %d key skills for %s', \count($skills['matched']), \count($skills['asked']), $position->title);
-        $fit .= [] === $skills['matched'] ? '.' : ': '.implode(', ', $skills['matched']).'.';
-        $gaps = [] === $skills['missingRequired'] ? '' : ' Missing: '.implode(', ', $skills['missingRequired']).'.';
-        $gaps .= [] === $skills['missingNiceToHave'] ? '' : ' Nice to have, missing: '.implode(', ', $skills['missingNiceToHave']).'.';
-
-        return $profile.$fit.$gaps;
     }
 
     /**

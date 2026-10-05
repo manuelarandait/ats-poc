@@ -37,9 +37,23 @@ final class EventContractsTest extends KernelTestCase
     {
         $at = new \DateTimeImmutable('2026-09-30 10:00:01');
 
-        $received = $this->sendThroughTheWire(new ScreeningCvScreened(self::APPLICATION_ID, 'Great fit.', 91, $at));
+        $skills = [['skill' => 'Symfony', 'required' => true, 'matched' => true], ['skill' => 'Kafka', 'required' => false, 'matched' => false]];
 
-        self::assertEquals(new RecruitmentCvScreened(self::APPLICATION_ID, 'Great fit.', 91, $at), $received);
+        $received = $this->sendThroughTheWire(new ScreeningCvScreened(self::APPLICATION_ID, 'Great fit.', 91, $skills, $at));
+
+        self::assertEquals(new RecruitmentCvScreened(self::APPLICATION_ID, 'Great fit.', 91, $skills, $at), $received);
+    }
+
+    public function test_a_cv_screened_published_before_the_skill_breakdown_existed_is_still_understood(): void
+    {
+        $serializer = self::getContainer()->get(JsonEventSerializer::class);
+
+        $received = $serializer->decode([
+            'body' => '{"aggregateId":"'.self::APPLICATION_ID.'","occurredOn":"2026-09-30T10:00:01.000000+00:00","payload":{"summary":"Great fit.","score":91}}',
+            'headers' => ['type' => 'screening.cv_screened'],
+        ])->getMessage();
+
+        self::assertEquals(new RecruitmentCvScreened(self::APPLICATION_ID, 'Great fit.', 91, [], new \DateTimeImmutable('2026-09-30 10:00:01')), $received);
     }
 
     public function test_recruitment_understands_screening_cv_screening_failed(): void

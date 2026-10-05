@@ -6,12 +6,14 @@ namespace App\Tests\Integration\Recruitment\Application;
 
 use App\Recruitment\Application\FindJobApplication\FindJobApplicationQuery;
 use App\Recruitment\Application\FindJobApplication\JobApplicationDetails;
+use App\Recruitment\Application\FindJobApplication\ScreenedSkill;
 use App\Recruitment\Application\ListJobOffers\JobOfferView;
 use App\Recruitment\Application\ListJobOffers\ListJobOffersQuery;
 use App\Recruitment\Domain\JobApplication\CvText;
 use App\Recruitment\Domain\JobApplication\JobApplicationNotFound;
 use App\Recruitment\Domain\JobApplication\JobApplicationStatus;
 use App\Recruitment\Domain\JobApplication\Notes;
+use App\Recruitment\Domain\JobApplication\SkillMatch;
 use App\Shared\Domain\Bus\Query\QueryBus;
 use App\Tests\Recruitment\Factory\JobApplicationFactory;
 use App\Tests\Recruitment\Factory\JobOfferFactory;
@@ -21,13 +23,13 @@ final class FindJobApplicationTest extends KernelTestCase
 {
     public function test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps(): void
     {
-        $offer = JobOfferFactory::createOne(['title' => 'Senior PHP Developer']);
+        $offer = JobOfferFactory::createOne(['title' => 'Senior PHP Developer', 'description' => "Build our backend.\n\nRequirements: PHP, Symfony."]);
         $application = JobApplicationFactory::new()
             ->forOffer($offer)
             ->candidate('Jane Doe', 'jane@example.com', '+34 600 123 456')
             ->with(['cv' => CvText::fromString("Jane Doe\n  PHP, 6 years"), 'notes' => Notes::fromNullable('Available in October')])
             ->appliedAt('2026-09-01 10:00:00')
-            ->screened(88, 'Strong PHP profile.')
+            ->screened(88, 'Strong PHP profile.', [SkillMatch::create('Kafka', false, false), SkillMatch::create('PHP', true, true), SkillMatch::create('Symfony', true, false)])
             ->inStatus(JobApplicationStatus::InReview)
             ->create();
 
@@ -37,6 +39,7 @@ final class FindJobApplicationTest extends KernelTestCase
         self::assertSame('jane@example.com', $details->candidateEmail);
         self::assertSame('+34600123456', $details->candidatePhone);
         self::assertSame('Senior PHP Developer', $details->positionTitle);
+        self::assertSame("Build our backend.\n\nRequirements: PHP, Symfony.", $details->positionDescription);
         self::assertSame("Jane Doe\n  PHP, 6 years", $details->cv);
         self::assertSame('Available in October', $details->notes);
         self::assertSame('in_review', $details->status);
@@ -44,6 +47,8 @@ final class FindJobApplicationTest extends KernelTestCase
         self::assertSame('completed', $details->screeningStatus);
         self::assertSame('Strong PHP profile.', $details->aiSummary);
         self::assertSame(88, $details->aiScore);
+        self::assertEquals([new ScreenedSkill('PHP', true, true), new ScreenedSkill('Symfony', true, false)], $details->requiredSkills(), 'Required first, in the order the AI listed them.');
+        self::assertEquals([new ScreenedSkill('Kafka', false, false)], $details->niceToHaveSkills());
         self::assertEquals(new \DateTimeImmutable('2026-09-01 10:00:00'), $details->appliedAt);
         self::assertEquals(new \DateTimeImmutable('2026-09-01 10:01:00'), $details->screenedAt);
         self::assertEquals(new \DateTimeImmutable('2026-09-02 10:00:00'), $details->updatedAt);

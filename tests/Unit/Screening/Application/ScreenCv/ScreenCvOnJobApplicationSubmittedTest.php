@@ -11,6 +11,7 @@ use App\Screening\Domain\CvAnalysisUnavailable;
 use App\Screening\Domain\CvAnalyzer;
 use App\Screening\Domain\Event\CvScreened;
 use App\Screening\Domain\Position;
+use App\Screening\Domain\SkillMatch;
 use App\Tests\Shared\Infrastructure\SpyEventBus;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Clock\MockClock;
@@ -38,7 +39,7 @@ final class ScreenCvOnJobApplicationSubmittedTest extends TestCase
                 $this->cv = $cv;
                 $this->position = $position;
 
-                return CvAnalysis::create('Great fit.', 90);
+                return CvAnalysis::create('Great fit.', 90, [new SkillMatch('Symfony', true, true), new SkillMatch('Kafka', false, false)]);
             }
         };
 
@@ -47,7 +48,10 @@ final class ScreenCvOnJobApplicationSubmittedTest extends TestCase
         self::assertSame('PHP developer, 6 years.', $analyzer->cv);
         self::assertEquals(new Position('Senior PHP Developer', 'Symfony and DDD.'), $analyzer->position);
         self::assertEquals(
-            [new CvScreened(self::APPLICATION_ID, 'Great fit.', 90, new \DateTimeImmutable(self::NOW))],
+            [new CvScreened(self::APPLICATION_ID, 'Great fit.', 90, [
+                ['skill' => 'Symfony', 'required' => true, 'matched' => true],
+                ['skill' => 'Kafka', 'required' => false, 'matched' => false],
+            ], new \DateTimeImmutable(self::NOW))],
             $this->eventBus->published,
         );
     }

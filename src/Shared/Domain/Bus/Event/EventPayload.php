@@ -32,11 +32,16 @@ final readonly class EventPayload
     }
 
     /**
+     * A default lets a consumer accept events published before the field
+     * existed (additive, backward-compatible contract change).
+     *
+     * @param array<array-key, mixed>|null $default
+     *
      * @return array<array-key, mixed>
      */
-    public function array(string $key): array
+    public function array(string $key, ?array $default = null): array
     {
-        $value = $this->data[$key] ?? null;
+        $value = $this->data[$key] ?? $default;
 
         return \is_array($value) ? $value : throw InvalidEventPayload::field($key, 'array');
     }

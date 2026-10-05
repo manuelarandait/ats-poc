@@ -44,6 +44,15 @@
                                     <p class="mt-1.5 text-sm leading-relaxed text-slate-700 dark:text-slate-300">{{ application.aiSummary }}</p>
                                 </div>
                             </div>
+                            {# The fit for the position, skill by skill (absent for analyses made before the breakdown existed). #}
+                            {% if application.aiSkills is not empty %}
+                                <div class="mt-5 space-y-4 border-t border-slate-200 pt-5 dark:border-slate-800">
+                                    <twig:SkillMatches label="Required" :skills="application.requiredSkills" />
+                                    {% if application.niceToHaveSkills is not empty %}
+                                        <twig:SkillMatches label="Nice to have" :skills="application.niceToHaveSkills" />
+                                    {% endif %}
+                                </div>
+                            {% endif %}
                         {% elseif application.screeningStatus == 'pending' %}
                             <div class="mt-4 flex items-center gap-5" aria-hidden="true">
                                 <div class="size-24 shrink-0 rounded-full border-8 border-slate-200 motion-safe:animate-pulse dark:border-slate-800"></div>
@@ -58,6 +67,15 @@
                             <p class="mt-3 flex gap-2 text-sm text-slate-600 dark:text-slate-400"><twig:Icon name="info" class="mt-0.5" /> The AI analysis couldn't be completed. The CV is still available below for manual review.</p>
                         {% endif %}
                     </div>
+                </section>
+
+                {# The offer next to the screening: what was asked, to read against the CV below. #}
+                <section class="card p-6" aria-labelledby="position-title">
+                    <h2 id="position-title" class="flex flex-wrap items-baseline gap-x-2 text-lg font-medium">
+                        Position
+                        <a href="{{ path('jobs_show', {id: application.jobOfferId}) }}" data-turbo-frame="_top" class="link text-sm font-normal">{{ application.positionTitle }}</a>
+                    </h2>
+                    <twig:JobDescription :description="application.positionDescription" class="mt-4" />
                 </section>
 
                 <section class="card p-6" aria-labelledby="cv-title">
