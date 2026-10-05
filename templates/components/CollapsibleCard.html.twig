@@ -1,0 +1,18 @@
+{#
+    A card whose content folds away behind its title, built on the native
+    <details>/<summary>: no JavaScript, keyboard and screen-reader friendly,
+    and the content stays in the page (searchable, printable).
+    Usage: <twig:CollapsibleCard id="cv" title="CV" :open="true">…</twig:CollapsibleCard>
+#}
+{% props id, title, open = false %}
+<section {{ attributes.defaults({class: 'card', 'aria-labelledby': id ~ '-title'}) }}>
+    <details class="group" {{ open ? 'open' }}>
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-3 rounded-xl p-6 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-indigo-500 group-open:pb-0">
+            <h2 id="{{ id }}-title" class="text-lg font-medium">{{ title }}</h2>
+            <twig:Icon name="chevron-down" class="size-5 shrink-0 text-slate-400 transition-transform group-open:rotate-180 motion-reduce:transition-none" />
+        </summary>
+        <div class="px-6 pb-6">
+            {% block content %}{% endblock %}
+        </div>
+    </details>
+</section>

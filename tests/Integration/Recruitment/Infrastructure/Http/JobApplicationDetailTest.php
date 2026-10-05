@@ -73,6 +73,8 @@ final class JobApplicationDetailTest extends WebTestCase
         self::assertSelectorTextContains('section[aria-labelledby="position-title"]', 'Senior PHP Developer');
         self::assertSelectorTextContains('section[aria-labelledby="position-title"]', 'Build our backend.');
         self::assertSelectorTextContains('section[aria-labelledby="position-title"] h3', 'Requirements');
+        self::assertSelectorNotExists('section[aria-labelledby="position-title"] details[open]', 'The offer starts folded: the chips sum it up.');
+        self::assertSelectorExists('section[aria-labelledby="cv-title"] details[open]');
     }
 
     public function test_an_analysis_made_before_the_skill_breakdown_existed_shows_only_the_summary(): void
