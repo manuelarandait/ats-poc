@@ -47,7 +47,7 @@ make test   # all tests
 make qa     # PHP-CS-Fixer (dry-run) + PHPStan level max + Deptrac
 ```
 
-**231 tests** (148 unit, 83 integration), all run in Docker against a real PostgreSQL test database: business rules, SQL read models, contracts between contexts, a real Messenger worker, every page, and the whole journey from the apply form to the recruiter screens. **Deptrac** fails the build if the domain depends on the framework or one bounded context imports another; GitHub Actions runs `make init`, `make qa` and `make test` on every pull request. Each acceptance criterion of the brief and the tests that prove it: [Architecture → Testing strategy](docs/ARCHITECTURE.md#testing-strategy).
+**237 tests** (151 unit, 86 integration), all run in Docker against a real PostgreSQL test database: business rules, SQL read models, contracts between contexts, a real Messenger worker, every page, and the whole journey from the apply form to the recruiter screens. **Deptrac** fails the build if the domain depends on the framework or one bounded context imports another; GitHub Actions runs `make init`, `make qa` and `make test` on every pull request. Each acceptance criterion of the brief and the tests that prove it: [Architecture → Testing strategy](docs/ARCHITECTURE.md#testing-strategy).
 
 ## Beyond the brief
 

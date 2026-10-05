@@ -43,7 +43,7 @@ La aplicación web lee `.env.local` en la siguiente petición; **el worker, solo
 
 ## Hacer cambios
 
-**Dónde va el código nuevo.** Primero decide el bounded context y la capa: reglas de negocio en `Domain`, casos de uso en `Application` (una carpeta por command o query), y todo lo que toque Symfony, Doctrine o RabbitMQ en `Infrastructure`. `make qa` falla (Deptrac) si una dependencia apunta en la dirección equivocada. La [estructura de carpetas](ARCHITECTURE.es.md#estructura-de-carpetas) muestra dónde vive cada tipo de clase.
+**Dónde va el código nuevo.** Primero decide el bounded context y la capa: reglas de negocio en `Domain`, casos de uso en `Application` (una carpeta por command o query), y todo lo que toque Symfony, Doctrine o RabbitMQ en `Infrastructure`. `make qa` falla (Deptrac) si una dependencia apunta en la dirección equivocada. La [estructura de carpetas](ARCHITECTURE.es.md#capas-y-contextos) muestra dónde vive cada tipo de clase.
 
 **Cambiar la base de datos.** El mapeo es XML, en `src/*/Infrastructure/Persistence/Doctrine/Mapping`. Después de cambiarlo:
 

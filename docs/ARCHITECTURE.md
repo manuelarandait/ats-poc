@@ -2,449 +2,168 @@
 
 🇪🇸 [Versión en español](ARCHITECTURE.es.md)
 
-This document explains **how the application is organised and why**, compared with the classic Symfony layout (`Controller/`, `Entity/`, `Repository/`, `Service/`), and gives a general map of the system: runtime pieces, domain model, use cases and the flows between them. The reasoning behind each individual choice lives in the [decision log](PLAN.md#decision-log).
+How the application is organised and why. The reason behind each individual choice is in the [decision log](PLAN.md#decision-log).
 
-## Contents
+## Overview
 
-1. [The idea in one sentence](#the-idea-in-one-sentence)
-2. [System at a glance](#system-at-a-glance)
-3. [Folder layout](#folder-layout)
-4. [Classic Symfony → this project](#classic-symfony--this-project)
-5. [Bounded contexts](#bounded-contexts)
-6. [Domain model](#domain-model)
-7. [Use cases (CQRS)](#use-cases-cqrs)
-8. [Flows](#flows)
-9. [Contracts between contexts](#contracts-between-contexts)
-10. [Reliability](#reliability)
-11. [Persistence](#persistence)
-12. [Testing strategy](#testing-strategy)
-13. [Enforced, not just drawn](#enforced-not-just-drawn)
-14. [Beyond the brief](#beyond-the-brief)
-15. [Trade-offs and next steps](#trade-offs-and-next-steps)
+In a classic Symfony app the framework sits in the centre and business rules are spread inside it. Here it is inverted: **business rules sit in the centre, in plain PHP, and Symfony, Doctrine and RabbitMQ are plugs at the edge**. Dependencies only point inwards, and **Deptrac** fails the build otherwise; PHPStan (level max), PHP-CS-Fixer and the tests run in CI on every pull request.
 
-## The idea in one sentence
-
-In a classic Symfony app **the framework sits in the centre** and business rules are spread inside it (ORM attributes on entities, services using the `EntityManager`, validation attributes on entities). Here it is inverted: **business rules sit in the centre, in plain PHP, and Symfony, Doctrine and RabbitMQ are plugs at the edge**.
-
-The rule that holds everything together: **dependencies only point inwards**. The domain doesn't know Symfony exists; Symfony knows the domain. This is verified automatically by Deptrac (`make deptrac`), so it is a guarantee, not a convention.
-
-```
-┌──────────────────── Infrastructure ────────────────────┐
-│  HTTP controllers, Doctrine, RabbitMQ, Twig, AI mock    │
-│    ┌─────────────── Application ───────────────┐        │
-│    │  Use cases: SubmitJobApplication, …       │        │
-│    │    ┌───────────── Domain ─────────────┐   │        │
-│    │    │  JobApplication, Email, rules …  │   │        │
-│    │    └──────────────────────────────────┘   │        │
-│    └───────────────────────────────────────────┘        │
-└─────────────────────────────────────────────────────────┘
-                 dependencies point → inwards
-```
-
-## System at a glance
-
-Four containers, one codebase. The web app and the worker run the **same image**: the app answers HTTP requests, the worker consumes RabbitMQ messages. Anything slow (the AI enrichment) happens in the worker, never inside a request.
-
-Two audiences: **candidates** use the public pages (job offers, apply) without an account; **recruiters** sign in to see and manage applications. Authentication is handled entirely at the edge (Symfony Security); the domain and the use cases know nothing about users.
+Four containers, one codebase. The app and the worker run the **same image**: the app answers HTTP, the worker consumes RabbitMQ, so anything slow (the AI enrichment) never runs inside a request. Candidates use the public pages without an account; recruiters sign in (Symfony Security, entirely at the edge).
 
 ```mermaid
 flowchart LR
     user([Candidate / Recruiter])
-
     subgraph docker [docker compose]
-        app["app<br/>FrankenPHP · Symfony<br/>(HTTP, commands, queries)"]
-        worker["worker<br/>messenger:consume async<br/>(event subscribers)"]
-        db[("PostgreSQL<br/>job_offer · job_application<br/>messenger_messages (failed)")]
-        mq[["RabbitMQ<br/>queue: messages"]]
+        app["app<br/>FrankenPHP · Symfony"]
+        worker["worker<br/>messenger:consume"]
+        db[("PostgreSQL")]
+        mq[["RabbitMQ"]]
     end
-
     user -- HTTP --> app
     app -- "read / write" --> db
-    app -- "publish events (after commit)" --> mq
-    mq -- "consume" --> worker
+    app -- "events, after commit" --> mq
+    mq --> worker
     worker -- "read / write" --> db
-    worker -- "publish events" --> mq
+    worker -- events --> mq
 ```
 
-## Folder layout
+## Layers and contexts
 
 ```
 src/
-├── Recruitment/                        bounded context: job offers & applications
-│   ├── Domain/                         plain PHP: rules and state
-│   │   ├── JobApplication/             aggregate, value objects, statuses, events, repository port
-│   │   │   ├── Candidate/              FullName, Email, Phone, Candidate
-│   │   │   └── Event/                  JobApplicationSubmitted, …Screened, …StatusChanged, …
-│   │   └── JobOffer/                   JobOffer, JobOfferId, repository port
-│   ├── Application/                    one folder per use case (command/query + handler)
-│   │   ├── SubmitJobApplication/
-│   │   ├── ChangeJobApplicationStatus/
-│   │   ├── CompleteJobApplicationScreening/   ← reacts to Screening's result
-│   │   ├── FailJobApplicationScreening/       ← reacts to Screening's failure
-│   │   ├── SearchJobApplications/             ← read side
-│   │   ├── FindJobApplication/                ← read side
-│   │   ├── FindJobApplicationStats/           ← read side
-│   │   ├── ListJobOffers/                     ← read side
-│   │   ├── FindJobOffer/                      ← read side
-│   │   └── JobApplicationReadModel.php        read-side port
-│   └── Infrastructure/
-│       ├── Http/                       invokable controllers, apply form + request DTO
-│       ├── Persistence/Doctrine/       repositories, XML mapping, DBAL types, schema listeners
-│       ├── Persistence/Dbal/           SQL read models (query side)
-│       └── Fixtures/                   demo data
-├── Screening/                          bounded context: AI enrichment of CVs
-│   ├── Domain/                         CvAnalyzer port, CvAnalysis, Position, events
-│   ├── Application/ScreenCv/           subscriber + its own view of Recruitment's event
-│   └── Infrastructure/
-│       ├── Ai/                         FakeLlmCvAnalyzer (mocked LLM)
-│       └── Messenger/                  "retries exhausted" listener
-└── Shared/                             the minimum common to all
-    ├── Domain/                         AggregateRoot, DomainEvent, DomainError, Uuid, pagination, bus ports
-    └── Infrastructure/                 Messenger bus adapters, JSON event serializer, DBAL helpers, pagination params, login, Twig extensions
+├── Recruitment/   job offers and applications
+│   ├── Domain/          aggregate, value objects, events, repository ports — plain PHP
+│   ├── Application/     one folder per use case: command or query + handler
+│   └── Infrastructure/  controllers, Doctrine (XML mapping), SQL read models, fixtures
+├── Screening/     AI analysis of CVs: the CvAnalyzer port and a mocked LLM
+└── Shared/        minimal shared kernel: base classes, Uuid, pagination, bus interfaces, login
 ```
 
-### Domain — the core
-
-Business rules and nothing else: an email must be valid, an application can't jump from `received` to `hired`, a repeated AI result is ignored. No `Symfony\…` or `Doctrine\…` imports.
-
-*Why:* rules are the most valuable and longest-living part of the code. In plain PHP they are tested in milliseconds without booting a kernel or a database, and framework upgrades don't touch them (this project moved from Symfony 7.4 to 8.1 without changing a single domain line).
-
-### Application — the use cases
-
-Each thing the system can do is a pair of classes: a command/query (input data) and its handler (orchestration). Handlers contain no business rules: they load or create aggregates, call their behaviour, save them and publish their events.
-
-*Why:* like classic `Service` classes, but one responsibility each and named after the business. Reading the folder tells you what the application does. Handlers implement our own interfaces, not Messenger's, so use cases don't depend on the framework either.
-
-### Infrastructure — the adapters
-
-Everything technology-specific: HTTP controllers, Doctrine repositories and XML mapping, SQL read models, message serialization, the AI mock, fixtures, templates.
-
-*Why:* replacing PostgreSQL, RabbitMQ or the AI provider only touches this folder.
-
-## Classic Symfony → this project
-
-| Classic Symfony | Here | What changes |
-|---|---|---|
-| `Entity/JobApplication.php` with `#[ORM\Column]` | `Domain/…/JobApplication.php` + XML mapping in `Infrastructure/Persistence/Doctrine/Mapping` | Still Doctrine — the metadata just moves out of the class, so the entity stays clean. |
-| `Repository/…Repository extends ServiceEntityRepository` | Interface in `Domain` + `Doctrine…Repository` in `Infrastructure` | The domain declares *what* it needs (a **port**); infrastructure decides *how* (an **adapter**) — hence "ports & adapters". |
-| `#[Assert\Email]` on the entity | `Email::fromString()` value object (plus form/DTO validation at the edge) | The rule travels with the data: an invalid `Email` can't exist anywhere. |
-| `$entity->setStatus('hired')` | `$application->changeStatus(JobApplicationStatus::Hired, $now)` | No setters: only business-named methods that protect the rules. State is readable (`public private(set)`) but not writable from outside. |
-| `Service/ApplicationService.php` | `Application/SubmitJobApplication/…Handler.php` | One use case per class. |
-| Repository method returning entities for a list page | `SearchJobApplications` query + SQL read model returning DTOs | Reads skip the domain model entirely. |
-| `EventSubscriber` / `MessageHandler` with `#[AsMessageHandler]` | Class implementing `DomainEventSubscriber`, wired in `services.yaml` | Same Messenger underneath; the use case just doesn't know it. |
-| `Controller/` | `Infrastructure/Http/` | Translates HTTP → command/query, nothing else. |
-| API Platform State Processor / Provider | Command handler / Query handler | Same idea: API Platform processors and providers already are adapters around a use case. |
-
-## Bounded contexts
-
-`Recruitment` (applications, hiring pipeline) and `Screening` (analysing a CV with AI) speak different languages and change for different reasons. If one imported the other's classes they would become a single coupled block, so they **only communicate through events over RabbitMQ**, and Deptrac fails if either imports the other.
+- **Domain**: the rules, with no `Symfony\…` or `Doctrine\…` imports, tested in milliseconds. The upgrade from Symfony 7.4 to 8.1 didn't touch it.
+- **Application**: each use case orchestrates (load, call the aggregate, save, publish) and holds no rules. Handlers implement our own interfaces, not Messenger's.
+- **Infrastructure**: everything technology-specific; replacing PostgreSQL, RabbitMQ or the AI provider only touches this layer.
 
 | Context | Owns | Publishes | Consumes |
 |---|---|---|---|
-| **Recruitment** | Job offers, job applications (candidate, CV, hiring status, AI results once received) | `recruitment.job_application.submitted` | `screening.cv_screened`, `screening.cv_screening_failed` |
-| **Screening** | Nothing persistent: analysing a CV against a position through an AI port | `screening.cv_screened`, `screening.cv_screening_failed` | `recruitment.job_application.submitted` |
-| **Shared** | Shared kernel only: aggregate/event base classes, `Uuid`, pagination, bus interfaces | — | — |
+| **Recruitment** | Job offers, applications (candidate, CV, hiring status, AI results) | `job_application.submitted` | `cv_screened`, `cv_screening_failed` |
+| **Screening** | Nothing persistent: analysing a CV against a position | `cv_screened`, `cv_screening_failed` | `job_application.submitted` |
 
-Screening is **stateless** on purpose: the result it produces belongs to the application, so it is stored once, in Recruitment.
+The contexts never import each other's classes; they only talk through events. Screening is stateless: its result belongs to the application, so it is stored once, in Recruitment.
 
-## Domain model
+| Classic Symfony | Here |
+|---|---|
+| Entity with `#[ORM\Column]` | Plain class + XML mapping in Infrastructure |
+| `ServiceEntityRepository` | Interface in Domain (port) + Doctrine implementation (adapter) |
+| `#[Assert\Email]` on the entity | `Email` value object: an invalid one can't exist (forms still validate at the edge) |
+| `setStatus('hired')` | `changeStatus(Hired, $now)`: business methods only, state readable but not writable from outside |
+| Service class | One handler per use case; reads go through SQL straight into DTOs |
 
-```mermaid
-classDiagram
-    class JobOffer {
-        JobOfferId id
-        string title
-        string description
-        create()
-    }
-    class JobApplication {
-        <<aggregate root>>
-        JobApplicationId id
-        JobOfferId jobOfferId
-        Candidate candidate
-        CvText cv
-        Notes? notes
-        DateTimeImmutable appliedAt
-        JobApplicationStatus status
-        ScreeningStatus screeningStatus
-        AiScreening? aiScreening
-        DateTimeImmutable? screenedAt
-        DateTimeImmutable updatedAt
-        submit(JobOffer, …)
-        changeStatus(JobApplicationStatus)
-        completeScreening(AiScreening)
-        failScreening(reason)
-    }
-    class Candidate {
-        <<value object>>
-        FullName fullName
-        Email email
-        Phone? phone
-    }
-    class AiScreening {
-        <<value object>>
-        string summary
-        AiScore score (0–100)
-        SkillMatch[] skills
-    }
-    JobApplication --> Candidate
-    JobApplication --> AiScreening
-    JobApplication ..> JobOffer : references by id
-```
+## Domain
 
-An application lives two **independent** lifecycles: the hiring pipeline, driven by recruiters, and the AI screening, driven by the asynchronous enrichment. A recruiter can move an application to `in_review` before the AI has answered.
+`JobApplication` is the aggregate. It lives two independent lifecycles: the **hiring pipeline**, moved by recruiters, and the **AI screening** (`pending → completed | failed`), moved by the worker. A recruiter can move an application before the AI has answered.
 
 ```mermaid
 stateDiagram-v2
     direction LR
-    state "Hiring pipeline (JobApplicationStatus)" as hiring {
-        [*] --> received
-        received --> in_review
-        in_review --> interviewing
-        interviewing --> hired
-        received --> rejected
-        in_review --> rejected
-        interviewing --> rejected
-        hired --> [*]
-        rejected --> [*]
-    }
+    [*] --> received
+    received --> in_review
+    in_review --> interviewing
+    interviewing --> hired
+    received --> rejected
+    in_review --> rejected
+    interviewing --> rejected
+    hired --> [*]
+    rejected --> [*]
 ```
 
-```mermaid
-stateDiagram-v2
-    direction LR
-    state "AI screening (ScreeningStatus)" as screening {
-        [*] --> pending : submit
-        pending --> completed : CvScreened
-        pending --> failed : CvScreeningFailed
-        failed --> completed : later success
-        completed --> completed : duplicate result ignored
-    }
-```
+- Transitions only along the pipeline; `hired` and `rejected` are final.
+- **Idempotent screening**: a repeated result is ignored and a late failure never overrides a completed one (messages may arrive twice).
+- Every change records a domain event; the handler publishes them.
+- Persistence: value objects map to columns through custom DBAL types, `Candidate` and `AiScreening` are embeddables (the AI's skill breakdown is a JSON column), aggregates reference each other by id, and ids are UUID v7 chosen by the caller.
 
-Rules the aggregate protects: transitions only along the pipeline (final states are final); a repeated screening result is ignored; a late failure never overrides a completed screening. Every change records a domain event.
-
-## Use cases (CQRS)
-
-**Commands** change state and return nothing; **queries** return data and change nothing. They travel on separate buses because their semantics differ: commands run inside a database transaction, queries can bypass the domain model, events may have zero or many subscribers.
-
-| Kind | Use case | Triggered by | Result |
-|---|---|---|---|
-| Command | `SubmitJobApplication` | Candidate (apply form) | Application `received`, screening `pending`, `JobApplicationSubmitted` |
-| Command | `ChangeJobApplicationStatus` | Recruiter | Status moved along the pipeline, `JobApplicationStatusChanged` |
-| Command | `CompleteJobApplicationScreening` | Screening's `cv_screened` event | Summary, score and skill breakdown attached, `JobApplicationScreened` |
-| Command | `FailJobApplicationScreening` | Screening's `cv_screening_failed` event | Screening `failed`, `JobApplicationScreeningFailed` |
-| Subscriber | `ScreenCvOnJobApplicationSubmitted` (Screening) | Recruitment's `submitted` event | Calls the AI port, publishes `CvScreened` |
-| Query | `SearchJobApplications` | Applications page | Page of rows filtered by status / position, searched by name / email, sorted by any column (newest first by default), each with the number of applications from its email |
-| Query | `FindJobApplicationStats` | Applications page, jobs page | Counts per status and per offer, ongoing analyses and average score |
-| Query | `FindJobApplication` | Detail page | Everything incl. CV, AI outputs, timestamps, allowed next statuses and the other applications from the same email |
-| Query | `ListJobOffers` | Jobs page, position filter | Job offer catalog |
-| Query | `FindJobOffer` | Apply page, confirmation page | One job offer |
-
-Recruitment reacts to Screening's events by **translating them into its own commands**: the change then goes through the command bus like any other write (transaction, business rules, events).
-
-## Flows
-
-### Submitting an application (synchronous part)
+## Main flow
 
 ```mermaid
 sequenceDiagram
     autonumber
     actor C as Candidate
-    participant H as HTTP controller
-    participant CB as Command bus
-    participant S as SubmitJobApplicationHandler
-    participant A as JobApplication
+    participant R as Recruitment
     participant DB as PostgreSQL
     participant MQ as RabbitMQ
+    participant S as Screening (worker)
 
-    C->>H: POST apply form
-    H->>CB: SubmitJobApplicationCommand (id = new UUID v7)
-    CB->>CB: begin transaction
-    CB->>S: handle
-    S->>DB: load JobOffer
-    S->>A: submit(offer, candidate, cv, …)
-    A-->>A: validate value objects, record JobApplicationSubmitted
-    S->>DB: save (status received, screening pending)
-    S->>CB: publish events (held back)
-    CB->>DB: commit
-    CB->>MQ: JobApplicationSubmitted (only now, after commit)
-    H-->>C: redirect — AI analysis runs in the background
+    C->>R: POST apply form
+    R->>DB: SubmitJobApplication — transaction, received + pending
+    R->>MQ: JobApplicationSubmitted (CV + position), only after commit
+    R-->>C: redirect — the analysis runs in the background
+    MQ->>S: submitted
+    S->>S: CvAnalyzer: summary, score, skill breakdown
+    S->>MQ: CvScreened
+    MQ->>R: CvScreened → CompleteJobApplicationScreening (idempotent)
+    R->>DB: screening completed
 ```
 
-### AI enrichment (asynchronous, in the worker)
+Recruitment turns Screening's events into its own commands, so every write goes through the same path (transaction, rules, events). If the AI keeps failing, Messenger retries 3 times and then `CvScreeningFailed` marks the screening as failed. Pages read through SQL straight into DTOs, without loading aggregates; the detail page polls only while the analysis is pending.
 
-```mermaid
-sequenceDiagram
-    autonumber
-    participant MQ as RabbitMQ
-    participant SC as Screening · ScreenCvOnJobApplicationSubmitted
-    participant AI as CvAnalyzer (mock LLM)
-    participant RC as Recruitment · CompleteJobApplicationScreening
-    participant DB as PostgreSQL
+## Events and reliability
 
-    MQ->>SC: recruitment.job_application.submitted (CV + position)
-    SC->>AI: analyse(cv, position)
-    AI-->>SC: summary + score + skill breakdown
-    SC->>MQ: screening.cv_screened
-    MQ->>RC: screening.cv_screened
-    RC->>DB: completeScreening(summary, score) — idempotent
-    Note over DB: list and detail now show summary + score
-```
-
-### When the AI keeps failing
-
-```mermaid
-sequenceDiagram
-    autonumber
-    participant MQ as RabbitMQ
-    participant SC as Screening subscriber
-    participant L as Retries-exhausted listener
-    participant F as Failure transport (DB)
-    participant RC as Recruitment · FailJobApplicationScreening
-
-    MQ->>SC: submitted
-    SC--xMQ: CvAnalysisUnavailable → retry in 1 s
-    MQ->>SC: retry #1 … #3 (exponential back-off)
-    SC--xL: still failing, no retries left
-    L->>MQ: screening.cv_screening_failed
-    L->>F: original message kept (inspect / replay)
-    MQ->>RC: screening.cv_screening_failed
-    RC->>RC: failScreening() — application no longer "pending" forever
-```
-
-### Reading (query side)
-
-```mermaid
-sequenceDiagram
-    participant H as HTTP controller
-    participant QB as Query bus
-    participant Q as SearchJobApplicationsHandler
-    participant RM as SQL read model
-    participant DB as PostgreSQL
-
-    H->>QB: SearchJobApplicationsQuery(status, position, search, sort, page)
-    QB->>Q: handle
-    Q->>Q: validate & normalise filters and sort (closed set of columns)
-    Q->>RM: search(criteria)
-    RM->>DB: SELECT … ORDER BY chosen column (applied_at DESC by default, indexed)
-    RM-->>H: JobApplicationPage of DTOs
-```
-
-No aggregates are loaded on the read side: there are no rules to protect when reading, so plain SQL into flat DTOs is simpler and faster.
-
-## Contracts between contexts
-
-Events crossing a context boundary travel as **JSON**, identified by a **stable event name**. That name plus the payload is the contract — not a PHP class.
-
-```
-headers: type: recruitment.job_application.submitted
-body:    {"aggregateId": "…", "occurredOn": "…", "payload": {"jobOfferId": "…", "positionTitle": "…", "positionDescription": "…", "cv": "…"}}
-```
-
-- The **publisher** serializes its own event class.
-- Each **consumer owns its own class** for the events it reads, with only the fields it needs (Screening's `JobApplicationSubmitted` ignores `jobOfferId`). The mapping *event name → consumer class* is explicit configuration, so the integration map of the system is readable in one place.
-- **Consumer-driven contract tests** send every published event through the real serializer and check the consumer's class rebuilds it: a renamed field fails a test, not production.
-- Only events that cross a boundary are routed to RabbitMQ; the rest stay in-process.
-- **Event-carried state transfer**: `JobApplicationSubmitted` carries the CV and the position, so Screening never has to call Recruitment back.
-- **Contracts evolve additively**: `screening.cv_screened` gained a `skills` list (the skill-by-skill breakdown); Recruitment reads a missing list as "no breakdown", so events published before the change are still understood (covered by a contract test).
-
-## Reliability
+- Events crossing a context travel as **JSON identified by a stable name** (`screening.cv_screened`); that name and the payload are the contract, not a PHP class.
+- Each consumer **owns its own class** with only the fields it needs; a map in `services.yaml` says which class reads each event.
+- **Contract tests** send every event through the real serializer: a renamed field fails a test, not production.
+- **Contracts evolve additively**: `cv_screened` gained `skills`, and an event without it still reads as "no breakdown".
+- **Event-carried state**: `JobApplicationSubmitted` carries the CV and the position, so Screening never calls Recruitment back.
 
 | Concern | How it is handled |
 |---|---|
-| Reacting to data that was rolled back | Events are held back until the command's transaction commits. |
-| Duplicate delivery (RabbitMQ is at-least-once) | The aggregate is idempotent: a repeated result or a late failure changes nothing. |
-| Transient AI failures | Messenger retries 3 times with exponential back-off (1 s, 2 s, 4 s). |
-| Permanent AI failures | When retries are exhausted, a `CvScreeningFailed` fact is published and the original message is kept in the failure transport (`messenger:failed:show` / `retry`). |
-| Unknown or malformed message | Decoding fails explicitly instead of handling a half-read event. |
-| Broker down right after a commit | **Not covered** (known trade-off): the event would be lost. A transactional outbox would close this gap. |
-
-## Persistence
-
-- **Mapping in XML** inside Infrastructure, so entities carry no ORM attributes (Doctrine ORM 3 removed YAML mapping).
-- **Value objects** become columns through custom DBAL types (`Email`, `FullName`, ids…); `Candidate` and `AiScreening` are embeddables (`candidate_*`, `ai_*` columns). Doctrine cannot express a *nullable* embeddable, so a small `postLoad` listener turns an all-NULL `AiScreening` back into `null`.
-- **Aggregates reference each other by id** (an application stores `jobOfferId`, not a Doctrine association), so there is no foreign key between them; integrity is checked by the use case.
-- **Indexes** for the list: `(applied_at, id)` for newest-first ordering, `status` and `job_offer_id` for the filters, `candidate_email` for grouping applications from the same email, and `pg_trgm` GIN indexes for the name/email "contains" search. The GIN indexes are declared to Doctrine by a schema listener so migrations never try to drop them.
-- **Ids are UUID v7**: generated by the caller before dispatching a command (commands return nothing) and naturally time-ordered.
+| Reacting to rolled-back data | Events wait for the command's transaction to commit |
+| Duplicate delivery (at-least-once) | The aggregate ignores repeated results |
+| Transient AI failure | 3 retries with back-off (1, 2, 4 s) |
+| Permanent AI failure | `CvScreeningFailed` is published; the message stays in the failure transport to inspect or replay |
+| Broker down right after a commit | **Not covered**: the event would be lost (see the outbox below) |
 
 ## Testing strategy
 
-| Level | What it proves | How |
-|---|---|---|
-| Unit | Business rules, use-case orchestration, mock-LLM scoring, serializer | Plain PHPUnit, Object Mothers, in-memory repositories, spy buses. No kernel, no DB — milliseconds. |
-| Integration | Adapters work for real: Doctrine round-trips, SQL read models, indexes, buses | PostgreSQL test database; every test rolled back (dama/doctrine-test-bundle); data seeded with Foundry through domain behaviour. |
-| Contract | Each consumer can read what each publisher sends | Real JSON serializer, publisher class in → consumer class out. |
-| End-to-end async | Submission → Screening → result, including retries and the failure path | A real Messenger `Worker` over the in-memory transport with serialization on. |
-| Functional | Every page, access control, rate limiting, and the whole journey from the apply form to the recruiter screens | `WebTestCase` against the real kernel; the journey test runs the worker between the submission and the recruiter's visit. |
-
-### Acceptance criteria → tests
+| Level | What it proves |
+|---|---|
+| Unit | Business rules, use cases (in-memory repositories, spy buses), mock-LLM scoring — no kernel, no database |
+| Integration | Doctrine and SQL read models against real PostgreSQL, each test rolled back |
+| Contract | Each consumer can read what each publisher sends |
+| Asynchronous | A real Messenger worker: enrichment, retries and the failure path |
+| Functional | Every page over HTTP, access control, and the whole journey from the form to the recruiter screens |
 
 | Acceptance criterion | Proven by |
 |---|---|
-| Submitting an application creates a record with `appliedAt` and the default status | `ApplyToJobOfferTest::test_submitting_stores_a_received_application_and_queues_the_ai_enrichment`, `SubmitJobApplicationHandlerTest::test_it_stores_a_received_application_applied_now`, `JobApplicationTest::test_a_submitted_application_is_received_with_its_applied_at_date` |
-| Asynchronous enrichment adds summary and score to that application | `AsyncEnrichmentTest::test_a_submitted_application_is_pending_until_the_worker_enriches_it` (real worker), `ApplicationJourneyTest` (form → worker → recruiter screens), `CompleteJobApplicationScreeningTest`, `EventContractsTest` |
-| …including when the AI fails (retries, then a clear final state) | `AsyncEnrichmentTest::test_when_the_llm_keeps_failing_the_message_is_retried_then_the_screening_is_marked_as_failed` |
-| The list is newest first | `SearchJobApplicationsTest::test_applications_are_listed_newest_first`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
-| Real-time filtering by status and position, and search by name or email | `SearchJobApplicationsTest` (each filter, search, combined filters), `BrowseJobApplicationsTest::test_it_filters_by_status_and_position_and_searches_by_name_or_email`, `…::test_live_filtering_only_renders_the_results_frame` |
-| The detail view shows all data, including the enrichment outputs | `JobApplicationDetailTest::test_it_shows_candidate_data_cv_ai_outputs_status_and_timestamps`, `FindJobApplicationTest::test_the_detail_shows_candidate_data_cv_enrichment_status_and_timestamps` |
-| The score is visible in the list | `SearchJobApplicationsTest::test_the_list_shows_the_ai_score_once_screened`, `BrowseJobApplicationsTest::test_the_list_is_newest_first_with_status_and_ai_score` |
-
-## Enforced, not just drawn
-
-| Rule | Checked by |
-|---|---|
-| Domain has no framework/ORM dependency | Deptrac |
-| Application has no framework dependency | Deptrac |
-| Contexts never import each other | Deptrac |
-| Types are sound | PHPStan (level max) |
-| Coding standard | PHP-CS-Fixer (`@Symfony`) |
-| Business rules behave as specified | Unit tests (no kernel, no DB) |
-| Adapters work with real PostgreSQL / Messenger | Integration tests |
-| Contexts still understand each other's events | Contract tests |
-| Recruiter area requires signing in; candidate pages stay public | Functional tests |
-| All of the above on every pull request | GitHub Actions (`make qa`, `make test` inside Docker) |
+| Submitting creates a record with `appliedAt` and the default status | `ApplyToJobOfferTest`, `SubmitJobApplicationHandlerTest`, `JobApplicationTest` |
+| Asynchronous enrichment adds summary and score | `AsyncEnrichmentTest`, `ApplicationJourneyTest`, `EventContractsTest` |
+| …including when the AI fails | `AsyncEnrichmentTest` |
+| The list is newest first, with the score | `SearchJobApplicationsTest`, `BrowseJobApplicationsTest` |
+| Real-time filtering by status and position, search by name or email | `SearchJobApplicationsTest`, `BrowseJobApplicationsTest` |
+| The detail shows all data, including the enrichment | `JobApplicationDetailTest`, `FindJobApplicationTest` |
 
 ## Beyond the brief
 
-The brief asks for the apply → enrich → browse flow. These were added on top, because a real recruiting tool would need them; none of them changes how the required flows work.
+Added because a real recruiting tool would need them; none changes the required flows.
 
 | Extra | What it adds |
 |---|---|
-| **Recruiter area behind a login** | Candidates apply without an account; listing and reviewing applications requires signing in. |
-| **Abuse protection** | The apply form accepts 5 valid applications per IP every 15 minutes (`APPLY_RATE_LIMIT`; raise it in `.env.local` for heavy manual testing), answering `429` beyond that; the login allows 5 failed attempts per minute. |
-| **Resilient AI enrichment** | A failing (mocked) LLM is retried 3 times with back-off; then the application shows *AI unavailable* instead of staying pending forever. |
-| **Hiring pipeline** | Statuses with transitions guarded by the domain: one click to advance, an inline confirmation to reject, a stepper showing the stage. |
-| **Applications grouped by email** | Each row shows how many applications came from its email (linking to all of them) and the detail page lists the others. Grouped on the read side only, because the email isn't verified (see below). |
-| **Overview** | Totals, ongoing analyses, interviews and average score; status tabs with counts; applications per offer for recruiters. |
-| **Sorting and pagination** | Click any column to sort (status in pipeline order, unscored applications last); first/previous/numbered/next/last pages and a page size. All of it in the URL, combined with the filters. |
-| **UI quality** | Dark mode, keyboard and screen-reader friendly, toasts, works without JavaScript (filters fall back to a plain form). |
-| **Enforced architecture** | Deptrac, PHPStan level max and CI on every pull request. |
+| Recruiter login | Candidates apply without an account; reviewing applications requires signing in |
+| Abuse protection | 5 valid applications per IP every 15 min (`APPLY_RATE_LIMIT`), login throttling |
+| Hiring pipeline | Transitions guarded by the domain, inline confirmation to reject |
+| Skill-by-skill match | ✓/✗ per skill the offer asks for, next to the offer itself |
+| Grouping by email | How many applications came from each email, and the others on the detail page |
+| Overview, sorting, pagination | Counts per status, KPIs, any column sortable, all in the URL |
+| UI quality | Dark mode, keyboard and screen-reader friendly, works without JavaScript |
 
-The reasons behind each one are in the [decision log](PLAN.md). Two of them have an architectural angle: abuse protection and the grouping of applications by email.
-
-**Abuse protection lives at the edge.** Every valid application costs a write and an AI analysis, so the apply form accepts at most `APPLY_RATE_LIMIT` (5) valid submissions per client IP every 15 minutes (sliding window, Symfony RateLimiter). Beyond that it answers `429` with `Retry-After` and keeps what the candidate typed; invalid submissions don't count, so a typo never locks a person out. The recruiter login is throttled the same way (5 failed attempts per minute for an email + IP pair).
-
-Neither is a business rule, so neither touches the domain or the use case: the check happens in the HTTP controller before the command is dispatched, and another entry point (an API, a CLI) would set its own policy. A rule such as "one application per email and offer" would be different: that is business, and it would live in the domain.
-
-**Applications from the same email are grouped on the read side.** A recruiter wants to see that a person has applied before, as real ATSs do. Each row of the list counts the applications sent from its email (linking to all of them) and the detail page lists the others. It is a query need, so it lives where CQRS puts queries: the read model (a correlated count and a second query, backed by an index on the email). The write model is unchanged: the candidate is still a value object inside each application.
-
-The step not taken on purpose is promoting `Candidate` to an aggregate (its own id and table, applications referencing it, one candidate per email). **The email isn't verified**: grouping applications under one identity by email would let anyone attach an application, with their name, phone and CV, to someone else's profile, or overwrite it. That is why the UI says "from the same email address, which isn't verified" rather than presenting one person. See the next steps below.
+Two have an architectural angle. **Rate limiting is a channel concern, not a business rule**, so it lives in the controller and the domain is untouched. **Grouping by email lives on the read side only**: the email isn't verified, so turning `Candidate` into an aggregate (one identity per email) would let anyone attach an application to someone else's profile.
 
 ## Trade-offs and next steps
 
-Hexagonal architecture is not free: more files, more indirection, some mapping between layers. For a plain CRUD, a classic Symfony + API Platform approach is more productive. It pays off when business rules are rich, the code must live for years, or — as here — asynchronous flows between separate parts of the domain need clear boundaries.
+Hexagonal architecture costs files and indirection; for a plain CRUD, classic Symfony with API Platform would be more productive. It pays off with rich rules, long-lived code or, as here, asynchronous flows between separate parts of the domain. On the way to production:
 
-What would change on the way to production:
-
-- **Transactional outbox** so no event is lost if the broker is down right after a commit.
-- **A real LLM adapter** implementing `CvAnalyzer` (prompting, JSON output parsing, timeouts, rate limits) — nothing else changes.
-- **A projection table** for the list if reads and writes ever need to scale independently.
-- **Accent-insensitive search** (`unaccent`) and keyset pagination for very large tables.
-- **Internationalised emails** (non-ASCII local parts), currently rejected by the `Email` value object.
-- **A real user store** (users table or SSO) instead of the in-memory demo recruiter account.
-- **A `Candidate` aggregate, once the email is verified** (a confirmation link, or candidate accounts): its own id and table, applications referencing it by id, a unique email, a migration that merges today's duplicates, and a way for recruiters to merge or split profiles by hand. Until then, grouping stays on the read side (see [Beyond the brief](#beyond-the-brief)).
-- **Rate limiting across instances**: the counters live in the app cache, so several app instances would share them through Redis, and behind a load balancer `trusted_proxies` must be set so the client IP is the real one.
-- **Shared sessions**: they are files on each instance by default, so with several instances they would move to Redis or the database, or recruiters would be logged out whenever the load balancer switches instance.
-- **Deploying the worker**: it is a long-running process, so every release restarts it (`messenger:stop-workers`, the process manager starts it again) to run the new code, and migrations must stay compatible with the version still running during the rollout.
-- **Watching the failure transport**: a message there means an analysis failed after its retries; alert when it isn't empty and replay with `messenger:failed:retry`.
+- **Transactional outbox**, so no event is lost if the broker is down right after a commit.
+- **A real LLM adapter** for `CvAnalyzer` (prompt, JSON output validation, timeouts); nothing else changes.
+- **A `Candidate` aggregate**, once the email is verified.
+- **Search**: accent-insensitive (`unaccent`), keyset pagination for very large tables, a projection table if reads and writes scale apart.
+- **Several app instances**: sessions and rate-limit counters in Redis, `trusted_proxies` behind the load balancer.
+- **Operations**: restart the worker on every deploy (`messenger:stop-workers`) with migrations compatible with the running version, and alert when the failure transport isn't empty.
+- **Users**: a real user store instead of the in-memory demo recruiter; internationalised emails.
