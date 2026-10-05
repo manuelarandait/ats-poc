@@ -18,7 +18,7 @@ Everything runs in Docker: PHP, Composer and the tests never run on the host.
 | `make db` | Create the databases and run pending migrations, for dev **and** test |
 | `make fixtures` | Reload the demo data — **wipes** every application created by hand |
 | `make assets` / `make css-watch` | Build the CSS once / on every template change |
-| `make logs` | Follow the asynchronous worker |
+| `make logs` | Follow the app and the worker (info level; full debug detail in `var/log/dev.log`) |
 | `make sh` | Shell into the app container |
 
 Running part of the test suite:

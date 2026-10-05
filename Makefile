@@ -62,8 +62,8 @@ deptrac: ## Check architecture layers and context boundaries
 
 qa: cs stan deptrac ## Run all quality checks
 
-logs: ## Tail the async worker logs
-	$(DC) logs -f worker
+logs: ## Tail the app and worker logs
+	$(DC) logs -f app worker
 
 sh: ## Shell into the app container
 	$(EXEC) sh
