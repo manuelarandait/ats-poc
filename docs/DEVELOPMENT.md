@@ -43,7 +43,7 @@ The web app reads `.env.local` on the next request; **the worker only on restart
 
 ## Making changes
 
-**Where new code goes.** Decide the bounded context and the layer first: business rules in `Domain`, use cases in `Application` (one folder per command or query), anything that touches Symfony, Doctrine or RabbitMQ in `Infrastructure`. `make qa` fails (Deptrac) if a dependency points the wrong way. The [folder layout](ARCHITECTURE.md#folder-layout) shows where each kind of class lives.
+**Where new code goes.** Decide the bounded context and the layer first: business rules in `Domain`, use cases in `Application` (one folder per command or query), anything that touches Symfony, Doctrine or RabbitMQ in `Infrastructure`. `make qa` fails (Deptrac) if a dependency points the wrong way. The [folder layout](ARCHITECTURE.md#layers-and-contexts) shows where each kind of class lives.
 
 **Changing the database.** Mapping is XML, in `src/*/Infrastructure/Persistence/Doctrine/Mapping`. After changing it:
 

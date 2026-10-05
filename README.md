@@ -47,7 +47,7 @@ make test   # all tests
 make qa     # PHP-CS-Fixer (dry-run) + PHPStan level max + Deptrac
 ```
 
-**231 tests** (148 unit, 83 integration), all run in Docker against a real PostgreSQL test database: business rules, SQL read models, contracts between contexts, a real Messenger worker, every page, and the whole journey from the apply form to the recruiter screens. **Deptrac** fails the build if the domain depends on the framework or one bounded context imports another; GitHub Actions runs `make init`, `make qa` and `make test` on every pull request. Each acceptance criterion of the brief and the tests that prove it: [Architecture → Testing strategy](docs/ARCHITECTURE.md#testing-strategy).
+**237 tests** (151 unit, 86 integration), all run in Docker against a real PostgreSQL test database: business rules, SQL read models, contracts between contexts, a real Messenger worker, every page, and the whole journey from the apply form to the recruiter screens. **Deptrac** fails the build if the domain depends on the framework or one bounded context imports another; GitHub Actions runs `make init`, `make qa` and `make test` on every pull request. Each acceptance criterion of the brief and the tests that prove it: [Architecture → Testing strategy](docs/ARCHITECTURE.md#testing-strategy).
 
 ## Beyond the brief
 
@@ -83,7 +83,6 @@ Full explanation, diagrams and the comparison with a classic Symfony layout: **[
 
 - **[Architecture](docs/ARCHITECTURE.md)** ([español](docs/ARCHITECTURE.es.md)) — how the code is organised and why, flows, contracts, reliability, testing strategy, trade-offs.
 - **[Development guide](docs/DEVELOPMENT.md)** ([español](docs/DEVELOPMENT.es.md)) — everyday commands, configuration, database changes, the asynchronous worker, troubleshooting.
-- **[Deploying to production](docs/DEPLOYMENT.md)** ([español](docs/DEPLOYMENT.es.md)) — what a production deployment would need: build, secrets, release steps, workers, scaling.
 - **[Work plan & decision log](docs/PLAN.md)** — the iterations this was built in and the reason behind every decision.
 
 This project was built with an AI coding assistant under an explicit working agreement: the plan, coding standards and architecture rules it followed are versioned in [`CLAUDE.md`](CLAUDE.md) and [`.claude/`](.claude), and every decision was taken by the author and recorded in the decision log.
